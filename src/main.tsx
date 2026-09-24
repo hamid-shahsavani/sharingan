@@ -3,7 +3,12 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 export function App() {
-  return <h1>Hello World!</h1>;
+  return (
+    <p>
+      Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod
+      tempor incididunt ut labore et dolore magna aliqua.
+    </p>
+  );
 }
 
 createRoot(document.getElementById('root')!).render(
