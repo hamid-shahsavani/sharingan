@@ -134,7 +134,7 @@ export default defineConfig([
       'check-file/folder-naming-convention': [
         'error',
         {
-          'src/**/': 'KEBAB_CASE',
+          'src/**/': '?(_)+([a-z0-9])*(-+([a-z0-9]))',
         },
       ],
     },

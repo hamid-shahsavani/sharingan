@@ -17,7 +17,7 @@ export interface MindMapCanvasProps {
 const INITIAL_NODES: Node[] = [];
 const INITIAL_EDGES: Edge[] = [];
 
-export const MindMapCanvas = ({
+export const Canvas = ({
   className,
   hasBackground = true,
 }: MindMapCanvasProps) => {
@@ -48,3 +48,6 @@ export const MindMapCanvas = ({
     </div>
   );
 };
+
+export const MindMapCanvas = Canvas;
+
