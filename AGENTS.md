@@ -21,12 +21,13 @@ Single Page Application (SPA). It provides users with:
 
 ### Migration & Refactoring Context
 
-- **Old Repository (Scan & Reference Source):**
-  [https://github.com/hamid-shahsavani/sharingan-old/](https://github.com/hamid-shahsavani/sharingan-old/)
+- **Legacy Reference Source (Old Codebase):** Located locally at
+  [sharingan-old](file:///c:/Users/hamid/Documents/projects/sharingan/.antigravity/sharingan-old/)
+  (`.antigravity/sharingan-old/`).
 - **Mission:** The current repository is a clean, modern reboot. Legacy features
-  from `sharingan-old` must be scanned, extracted, and refactored into the new
-  architecture adhering to strict modern best practices, removing technical
-  debt, and modernizing the technology stack.
+  from the local `sharingan-old` directory must be scanned, extracted, and
+  refactored into the new architecture adhering to strict modern best practices,
+  removing technical debt, and modernizing the technology stack.
 
 ---
 
@@ -474,7 +475,7 @@ The `containers/` directory houses complex page sections that are assembled in
 ## 8. Refactoring Playbook: Upgrading from `sharingan-old`
 
 When porting or refactoring features from the old codebase
-([hamid-shahsavani/sharingan-old](https://github.com/hamid-shahsavani/sharingan-old/)),
+([sharingan-old](file:///c:/Users/hamid/Documents/projects/sharingan/.antigravity/sharingan-old/)),
 follow these mandatory rules:
 
 ### A. Store Lifecycle & Async Initialization
@@ -546,9 +547,11 @@ AI agents can verify and run tasks using the following package scripts:
 
 1. **No Automatic Commits:** Do **NOT** run `git commit` or create git commits
    automatically unless the user explicitly asks you to commit.
-2. **Scan First, Code Second:** When refactoring a feature, consult the cloned
-   reference source from `sharingan-old` to understand requirements, edge cases,
-   and schemas before writing the new implementation.
+2. **Scan First, Code Second:** When refactoring a feature, consult the local
+   reference source at
+   [sharingan-old](file:///c:/Users/hamid/Documents/projects/sharingan/.antigravity/sharingan-old/)
+   (`.antigravity/sharingan-old/`) to understand requirements, edge cases, and
+   schemas before writing the new implementation.
 3. **Preserve Integrity:** Never break existing type safety or leave broken
    build/lint states.
 4. **Clickable Links:** When reporting modified or created files to the user,
