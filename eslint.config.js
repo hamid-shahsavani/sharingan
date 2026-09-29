@@ -20,7 +20,13 @@ import tseslint from 'typescript-eslint';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig([
-  globalIgnores(['dist', 'build', 'node_modules', 'coverage']),
+  globalIgnores([
+    'dist',
+    'build',
+    'node_modules',
+    'coverage',
+    '.antigravity/**',
+  ]),
   {
     files: ['**/*.{js,mjs,cjs}'],
     extends: [js.configs.recommended],
