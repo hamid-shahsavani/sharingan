@@ -21,6 +21,7 @@ export interface MindMapCanvasProps {
   onEdgesChange: OnEdgesChange;
   isSelectingZoomArea?: boolean;
   onSelectZoomAreaChange?: (isActive: boolean) => void;
+  onEditNode?: (nodeId: string) => void;
   className?: string;
   isBackgroundVisible?: boolean;
 }
@@ -106,13 +107,29 @@ export const Canvas = (props: MindMapCanvasProps) => {
   const isBackgroundVisible = props.isBackgroundVisible ?? true;
   const isSelectingZoomArea = props.isSelectingZoomArea ?? false;
 
+  const nodesWithHandlers = props.nodes.map((node) => {
+    if (node.type === 'group') {
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          onEdit: props.onEditNode,
+        },
+      };
+    }
+    return node;
+  });
+
   return (
     <div className={cn('relative h-full w-full', props.className)}>
       <ReactFlow
-        nodes={props.nodes}
+        nodes={nodesWithHandlers}
         edges={props.edges}
         onNodesChange={props.onNodesChange}
         onEdgesChange={props.onEdgesChange}
+        onNodeDoubleClick={(_event, node) => {
+          props.onEditNode?.(node.id);
+        }}
         nodeTypes={NODE_TYPES}
         fitView
         fitViewOptions={{ padding: 0.25, duration: 0 }}

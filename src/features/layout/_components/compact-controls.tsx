@@ -15,7 +15,8 @@ const BOTTOM_MENU_POSITION_CLASS = 'bottom-5!';
 
 export interface CompactControlsProps {
   nodes: Array<{ id: string }>;
-  onCreateNode: (action: CreateToolbarAction) => void;
+  onOpenCreateGroupModal: () => void;
+  onCreateNode?: (action: CreateToolbarAction) => void;
   onSelectZoomArea: () => void;
   activeVersionId: string | null;
   isDirty: boolean;
@@ -97,10 +98,7 @@ export const CompactControls = (props: CompactControlsProps) => {
           />
           <ZoomAreaControl onSelectZoomArea={props.onSelectZoomArea} />
           <FitViewControl />
-          <CreateControl
-            onCreateNode={props.onCreateNode}
-            onOpenChange={setIsMenuOpen}
-          />
+          <CreateControl onOpenCreateGroupModal={props.onOpenCreateGroupModal} />
           <div className="flex items-center gap-1.5">
             <ZoomControl />
             <HistoryControl

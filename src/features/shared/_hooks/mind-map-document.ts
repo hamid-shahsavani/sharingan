@@ -9,6 +9,7 @@ import {
 } from '@xyflow/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import type { GroupNodeFormValues } from '@/features/main/_schemas/group-node-schema';
 import type { CreateToolbarAction } from '@/features/shared/_types/workspace-types';
 import {
   dbService,
@@ -18,7 +19,7 @@ import {
 const DEFAULT_WORKSPACE_ID = 'default-workspace';
 const DEFAULT_DOCUMENT_ID = 'default-document';
 
-const INITIAL_NODES: Node[] = [
+const INITIAL_DEFAULT_NODES: Node[] = [
   {
     id: 'group-node-1',
     type: 'group',
@@ -29,7 +30,7 @@ const INITIAL_NODES: Node[] = [
   },
 ];
 
-const INITIAL_EDGES: Edge[] = [];
+const INITIAL_DEFAULT_EDGES: Edge[] = [];
 
 interface HistorySnapshot {
   nodes: Node[];
@@ -52,42 +53,47 @@ export function downloadJsonFile(filenameString: string, dataObject: unknown): v
 export const useMindMapDocument = () => {
   const { getViewport, screenToFlowPosition, setViewport } = useReactFlow();
 
-  const [nodes, setNodes, onNodesChangeOriginal] = useNodesState(INITIAL_NODES);
-  const [edges, setEdges, onEdgesChangeOriginal] = useEdgesState(INITIAL_EDGES);
+  const [nodes, setNodes, onNodesChangeOriginal] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChangeOriginal] = useEdgesState<Edge>([]);
 
   const [activeDocumentId, setActiveDocumentId] = useState<string>(DEFAULT_DOCUMENT_ID);
   const [versions, setVersions] = useState<VersionRecord[]>([]);
   const [activeVersionId, setActiveVersionId] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isDatabaseReady, setIsDatabaseReady] = useState<boolean>(false);
   const [isSelectingZoomArea, setIsSelectingZoomArea] = useState<boolean>(false);
   const [canUndo, setCanUndo] = useState<boolean>(false);
   const [canRedo, setCanRedo] = useState<boolean>(false);
 
-  const historyStackRef = useRef<HistorySnapshot[]>([{ nodes: INITIAL_NODES, edges: INITIAL_EDGES }]);
+  const historyStackRef = useRef<HistorySnapshot[]>([{ nodes: [], edges: [] }]);
   const historyIndexRef = useRef<number>(0);
   const isUndoRedoActionRef = useRef<boolean>(false);
+  const autoSaveTimerRef = useRef<number | null>(null);
 
   const updateUndoRedoState = useCallback((index: number, length: number) => {
     setCanUndo(index > 0);
     setCanRedo(index < length - 1);
   }, []);
 
-  const pushHistorySnapshot = useCallback((newNodes: Node[], newEdges: Edge[]) => {
-    if (isUndoRedoActionRef.current) {
-      isUndoRedoActionRef.current = false;
-      return;
-    }
-    const nextHistory = historyStackRef.current.slice(0, historyIndexRef.current + 1);
-    nextHistory.push({ nodes: newNodes, edges: newEdges });
-    if (nextHistory.length > 50) {
-      nextHistory.shift();
-    }
-    historyStackRef.current = nextHistory;
-    const nextIndex = nextHistory.length - 1;
-    historyIndexRef.current = nextIndex;
-    updateUndoRedoState(nextIndex, nextHistory.length);
-  }, [updateUndoRedoState]);
+  const pushHistorySnapshot = useCallback(
+    (newNodes: Node[], newEdges: Edge[]) => {
+      if (isUndoRedoActionRef.current) {
+        isUndoRedoActionRef.current = false;
+        return;
+      }
+      const nextHistory = historyStackRef.current.slice(0, historyIndexRef.current + 1);
+      nextHistory.push({ nodes: newNodes, edges: newEdges });
+      if (nextHistory.length > 50) {
+        nextHistory.shift();
+      }
+      historyStackRef.current = nextHistory;
+      const nextIndex = nextHistory.length - 1;
+      historyIndexRef.current = nextIndex;
+      updateUndoRedoState(nextIndex, nextHistory.length);
+    },
+    [updateUndoRedoState],
+  );
 
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
@@ -104,6 +110,42 @@ export const useMindMapDocument = () => {
     },
     [onEdgesChangeOriginal],
   );
+
+  // Auto-save debounced changes to IndexedDB
+  useEffect(() => {
+    if (!isDatabaseReady || !isDirty) {
+      return;
+    }
+
+    if (autoSaveTimerRef.current !== null) {
+      window.clearTimeout(autoSaveTimerRef.current);
+    }
+
+    autoSaveTimerRef.current = window.setTimeout(() => {
+      const persistAutoSave = async () => {
+        try {
+          setIsSaving(true);
+          await dbService.documents.save(activeDocumentId, {
+            nodes,
+            edges,
+          });
+          setIsDirty(false);
+        } catch (error) {
+          console.error('Failed to auto-save document to IndexedDB:', error);
+        } finally {
+          setIsSaving(false);
+        }
+      };
+
+      void persistAutoSave();
+    }, 600);
+
+    return () => {
+      if (autoSaveTimerRef.current !== null) {
+        window.clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [activeDocumentId, edges, isDatabaseReady, isDirty, nodes]);
 
   const handleUndo = useCallback(() => {
     if (historyIndexRef.current > 0) {
@@ -141,6 +183,7 @@ export const useMindMapDocument = () => {
     return records;
   }, []);
 
+  // Initialize and load nodes/edges strictly from IndexedDB
   useEffect(() => {
     let isMounted = true;
 
@@ -161,8 +204,8 @@ export const useMindMapDocument = () => {
             id: DEFAULT_DOCUMENT_ID,
             workspaceId: workspace.id,
             title: 'نقشه ذهنی من',
-            nodes: INITIAL_NODES,
-            edges: INITIAL_EDGES,
+            nodes: INITIAL_DEFAULT_NODES,
+            edges: INITIAL_DEFAULT_EDGES,
             viewport: { x: 0, y: 0, zoom: 1 },
           });
 
@@ -170,8 +213,8 @@ export const useMindMapDocument = () => {
             id: crypto.randomUUID(),
             documentId: documentRecord.id,
             name: 'نسخه اولیه',
-            nodes: INITIAL_NODES,
-            edges: INITIAL_EDGES,
+            nodes: INITIAL_DEFAULT_NODES,
+            edges: INITIAL_DEFAULT_EDGES,
             viewport: { x: 0, y: 0, zoom: 1 },
           });
 
@@ -179,17 +222,14 @@ export const useMindMapDocument = () => {
 
           setVersions([initialVersion]);
           setActiveVersionId(initialVersion.id);
+          setNodes(documentRecord.nodes);
+          setEdges(documentRecord.edges);
         } else {
           if (!isMounted) return;
 
           setActiveDocumentId(documentRecord.id);
-          if (documentRecord.nodes && documentRecord.nodes.length > 0) {
-            setNodes(documentRecord.nodes);
-          }
-          if (documentRecord.edges) {
-            setEdges(documentRecord.edges);
-          }
-
+          setNodes(documentRecord.nodes ?? []);
+          setEdges(documentRecord.edges ?? []);
 
           const existingVersions = await dbService.versions.getByDocumentId(documentRecord.id);
           if (!isMounted) return;
@@ -202,13 +242,16 @@ export const useMindMapDocument = () => {
 
         if (!isMounted) return;
 
-        historyStackRef.current = [{
-          nodes: documentRecord.nodes || INITIAL_NODES,
-          edges: documentRecord.edges || INITIAL_EDGES,
-        }];
+        historyStackRef.current = [
+          {
+            nodes: documentRecord.nodes ?? [],
+            edges: documentRecord.edges ?? [],
+          },
+        ];
         historyIndexRef.current = 0;
         updateUndoRedoState(0, 1);
         setIsDirty(false);
+        setIsDatabaseReady(true);
       } catch (error) {
         console.error('Failed to initialize database:', error);
       }
@@ -268,10 +311,12 @@ export const useMindMapDocument = () => {
         }
         setActiveVersionId(versionId);
         setIsDirty(false);
-        historyStackRef.current = [{
-          nodes: rolledBackDoc.nodes,
-          edges: rolledBackDoc.edges,
-        }];
+        historyStackRef.current = [
+          {
+            nodes: rolledBackDoc.nodes,
+            edges: rolledBackDoc.edges,
+          },
+        ];
         historyIndexRef.current = 0;
         updateUndoRedoState(0, 1);
       } catch (error) {
@@ -310,8 +355,8 @@ export const useMindMapDocument = () => {
     [versions],
   );
 
-  const handleCreateNode = useCallback(
-    (_action: CreateToolbarAction = 'group') => {
+  const handleCreateGroupNode = useCallback(
+    async (values: GroupNodeFormValues) => {
       const centerPosition = screenToFlowPosition({
         x: window.innerWidth / 2,
         y: window.innerHeight / 2,
@@ -323,21 +368,85 @@ export const useMindMapDocument = () => {
         y: Math.round(centerPosition.y + randomOffset),
       };
 
+      const newNodeId = `group-node-${Date.now()}`;
       const newNode: Node = {
-        id: `group-node-${Date.now()}`,
+        id: newNodeId,
         type: 'group',
         position: nodePosition,
         data: {
-          title: 'گروه جدید',
+          title: values.title,
         },
       };
 
       const nextNodes = [...nodes, newNode];
       setNodes(nextNodes);
       pushHistorySnapshot(nextNodes, edges);
-      setIsDirty(true);
+
+      try {
+        setIsSaving(true);
+        await dbService.documents.save(activeDocumentId, {
+          nodes: nextNodes,
+          edges,
+        });
+        setIsDirty(false);
+      } catch (error) {
+        console.error('Failed to persist created node to IndexedDB:', error);
+      } finally {
+        setIsSaving(false);
+      }
     },
-    [edges, nodes, pushHistorySnapshot, screenToFlowPosition, setNodes],
+    [activeDocumentId, edges, nodes, pushHistorySnapshot, screenToFlowPosition, setNodes],
+  );
+
+  const handleUpdateGroupNode = useCallback(
+    async (nodeId: string, values: GroupNodeFormValues) => {
+      const nextNodes = nodes.map((node) => {
+        if (node.id === nodeId) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              title: values.title,
+            },
+          };
+        }
+        return node;
+      });
+
+      setNodes(nextNodes);
+      pushHistorySnapshot(nextNodes, edges);
+
+      try {
+        setIsSaving(true);
+        await dbService.documents.save(activeDocumentId, {
+          nodes: nextNodes,
+          edges,
+        });
+        setIsDirty(false);
+      } catch (error) {
+        console.error('Failed to persist updated node to IndexedDB:', error);
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [activeDocumentId, edges, nodes, pushHistorySnapshot, setNodes],
+  );
+
+  const handleCreateNode = useCallback(
+    (_action: CreateToolbarAction = 'group') => {
+      void handleCreateGroupNode({
+        title: 'گروه جدید',
+      });
+    },
+    [handleCreateGroupNode],
+  );
+
+  const getNodeById = useCallback(
+    (id: string | null): Node | undefined => {
+      if (!id) return undefined;
+      return nodes.find((node) => node.id === id);
+    },
+    [nodes],
   );
 
   return {
@@ -350,6 +459,7 @@ export const useMindMapDocument = () => {
     versions,
     isDirty,
     isSaving,
+    isDatabaseReady,
     isSelectingZoomArea,
     setIsSelectingZoomArea,
     canUndo,
@@ -360,6 +470,9 @@ export const useMindMapDocument = () => {
     handleSwitchVersion,
     handleDeleteVersion,
     handleDownloadVersion,
+    handleCreateGroupNode,
+    handleUpdateGroupNode,
     handleCreateNode,
+    getNodeById,
   };
 };
