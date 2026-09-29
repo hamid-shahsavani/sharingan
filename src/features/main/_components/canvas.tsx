@@ -50,4 +50,3 @@ export const Canvas = ({
 };
 
 export const MindMapCanvas = Canvas;
-
