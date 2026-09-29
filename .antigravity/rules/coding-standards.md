@@ -25,7 +25,7 @@ that must be followed across the codebase.
 
 - Props and parameters MUST be defined as an `interface` in the same file. Never
   use inline type objects.
-- Props must be destructured directly in the component parameter list.
+- **Never Destructure Props:** Props must NEVER be destructured (neither in the parameter list nor inside the component body). Always access properties directly through `props` (e.g., `props.data`, `props.isOpen`, `props.onSubmit`).
 - **Boolean Props:** Must be prefixed with `is` (e.g.,
   `isOpen`, `isSelected`).
 - **Callback Props:** Must be prefixed with `on` (e.g., `onSubmit`, `onClose`,
@@ -37,11 +37,8 @@ that must be followed across the codebase.
 
 - All components MUST be defined as arrow functions:
   ```typescript
-  export const NodeCard = ({
-    node,
-    isSelected,
-  }: NodeCardProps) => {
-    // ...
+  export const NodeCard = (props: NodeCardProps) => {
+    // Access properties directly via props.node, props.isSelected, etc.
   };
   ```
 - **Decomposition:** If a component grows large or complex, break it down into

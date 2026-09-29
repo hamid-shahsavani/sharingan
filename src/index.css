@@ -7,9 +7,9 @@
 @font-face {
   font-family: 'IRANSansX';
   src:
-    url('./features/shared/assets/fonts/IRANSansXV.woff2')
+    url('./features/shared/_assets/fonts/IRANSansXV.woff2')
       format('woff2-variations'),
-    url('./features/shared/assets/fonts/IRANSansXV.woff2') format('woff2');
+    url('./features/shared/_assets/fonts/IRANSansXV.woff2') format('woff2');
   font-weight: 100 1000;
   font-style: normal;
   font-display: swap;
@@ -48,6 +48,22 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --surface-panel: oklch(1 0 0);
+  --surface-panel-border: oklch(0.78 0.08 292 / 70%);
+  --node-border: oklch(0.78 0.08 292 / 70%);
+  --node-border-hover: oklch(0.72 0.12 292);
+  --node-surface-from: oklch(1 0 0);
+  --node-surface-to: oklch(0.98 0.025 300);
+  --node-surface-hover-from: oklch(0.98 0.025 300);
+  --node-surface-hover-to: oklch(1 0 0);
+  --node-text: oklch(0.35 0.025 285);
+  --node-icon-background: oklch(0.96 0.035 300);
+  --node-icon-foreground: oklch(0.55 0.18 300);
+  --node-handle: oklch(0.65 0.15 300);
+  --accent-purple: oklch(0.58 0.2 300);
+  --accent-purple-muted: oklch(0.72 0.14 300);
+  --node-shadow: oklch(0.2 0.04 260 / 10%);
+  --node-shadow-hover: oklch(0.2 0.04 260 / 16%);
 }
 
 @theme inline {
@@ -84,6 +100,22 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
+  --color-surface-panel: var(--surface-panel);
+  --color-surface-panel-border: var(--surface-panel-border);
+  --color-node-border: var(--node-border);
+  --color-node-border-hover: var(--node-border-hover);
+  --color-node-surface-from: var(--node-surface-from);
+  --color-node-surface-to: var(--node-surface-to);
+  --color-node-surface-hover-from: var(--node-surface-hover-from);
+  --color-node-surface-hover-to: var(--node-surface-hover-to);
+  --color-node-text: var(--node-text);
+  --color-node-icon-background: var(--node-icon-background);
+  --color-node-icon-foreground: var(--node-icon-foreground);
+  --color-node-handle: var(--node-handle);
+  --color-accent-purple: var(--accent-purple);
+  --color-accent-purple-muted: var(--accent-purple-muted);
+  --color-node-shadow: var(--node-shadow);
+  --color-node-shadow-hover: var(--node-shadow-hover);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -125,6 +157,22 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --surface-panel: oklch(0.205 0.035 300);
+  --surface-panel-border: oklch(0.72 0.14 300 / 25%);
+  --node-border: oklch(0.72 0.14 300 / 40%);
+  --node-border-hover: oklch(0.78 0.16 300 / 70%);
+  --node-surface-from: oklch(0.3 0.08 305);
+  --node-surface-to: oklch(0.16 0.04 300);
+  --node-surface-hover-from: oklch(0.33 0.09 305);
+  --node-surface-hover-to: oklch(0.18 0.045 300);
+  --node-text: oklch(0.98 0 0 / 88%);
+  --node-icon-background: oklch(0.58 0.2 300 / 15%);
+  --node-icon-foreground: oklch(0.78 0.14 300);
+  --node-handle: oklch(0.72 0.14 300 / 65%);
+  --accent-purple: oklch(0.78 0.14 300);
+  --accent-purple-muted: oklch(0.68 0.16 300);
+  --node-shadow: oklch(0 0 0 / 28%);
+  --node-shadow-hover: oklch(0 0 0 / 34%);
 }
 
 @layer base {
@@ -137,4 +185,61 @@
   html {
     @apply font-sans;
   }
+}
+
+.react-flow {
+  --xy-node-boxshadow-selected: none;
+  --xy-node-boxshadow-selected-default: none;
+  --xy-node-boxshadow-hover-default: none;
+  --xy-node-border-default: none;
+}
+
+.react-flow__node,
+.react-flow__node-default,
+.react-flow__node-input,
+.react-flow__node-output,
+.react-flow__node-group {
+  width: auto;
+  padding: 0;
+  border: none !important;
+  background: transparent;
+  overflow: visible;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.react-flow__node.selectable:hover,
+.react-flow__node-default.selectable:hover,
+.react-flow__node-input.selectable:hover,
+.react-flow__node-output.selectable:hover,
+.react-flow__node-group.selectable:hover {
+  box-shadow: none !important;
+}
+
+.react-flow__node.selected,
+.react-flow__node.selectable.selected,
+.react-flow__node-group.selected,
+.react-flow__node-group.selectable.selected,
+.react-flow__node-default.selected,
+.react-flow__node-default.selectable.selected,
+.react-flow__node-input.selected,
+.react-flow__node-input.selectable.selected,
+.react-flow__node-output.selected,
+.react-flow__node-output.selectable.selected {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.react-flow__node:focus,
+.react-flow__node:focus-visible,
+.react-flow__node.selectable:focus,
+.react-flow__node.selectable:focus-visible,
+.react-flow__node-group:focus,
+.react-flow__node-group:focus-visible,
+.react-flow__node-group.selectable:focus,
+.react-flow__node-group.selectable:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
 }
