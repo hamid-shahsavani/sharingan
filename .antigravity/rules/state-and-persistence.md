@@ -3,8 +3,8 @@
 This document defines patterns for local state management (Jotai) and offline
 persistence (IndexedDB).
 
-> [!IMPORTANT] **No Remote API / Server Communication:** Sharingan is an
-> offline-first, 100% client-driven application. There are no remote API
+> [!IMPORTANT] **No Remote API / Server Communication:** This application is
+> strictly offline-first and 100% client-driven. There are no remote API
 > services, fetchers, HTTP clients, TanStack queries, or mutations.
 
 ---

@@ -37,10 +37,10 @@ that must be followed across the codebase.
 
 - All components MUST be defined as arrow functions:
   ```typescript
-  export const MindMapNodeCard = ({
+  export const NodeCard = ({
     node,
     isSelected,
-  }: MindMapNodeCardProps) => {
+  }: NodeCardProps) => {
     // ...
   };
   ```

@@ -1,28 +1,11 @@
-# Project Overview, Mission & Technology Stack
+# Technology Stack & Architectural Guidelines
 
-This document defines the core mission, capabilities, architectural philosophy,
-runtime framework, build tools, styling, and dependencies used across
-**Sharingan**.
-
----
-
-## 1. Project Mission & Capabilities
-
-**Sharingan** is a high-performance visual mind-mapping and knowledge-graph
-Single Page Application (SPA). It provides users with:
-
-- **Infinite Canvas:** Conceptual mind maps, hierarchical node graphs, and
-  freeform relational mapping.
-- **Multi-Workspace Hierarchy:** Support for parent (group) workspaces and
-  nested child workspaces.
-- **Node Inspection & Rich Editing:** Markdown notes editor, file and folder
-  attachments, visual tags, and AI-assisted ideation.
-- **Persistence & History:** Snapshot-based version history with full undo/redo
-  and robust offline-first IndexedDB persistence.
+This document defines the runtime framework, build tools, styling, architectural
+philosophy, and dependencies used across the codebase.
 
 ---
 
-## 2. Core Architectural Philosophy
+## 1. Core Architectural Philosophy
 
 - **100% Offline-First:** No remote backend, API services, or cloud
   dependencies. All state, graphs, workspaces, and media attachments are
@@ -34,7 +17,7 @@ Single Page Application (SPA). It provides users with:
 
 ---
 
-## 3. Technology Stack Overview
+## 2. Technology Stack Overview
 
 | Layer                   | Technology            | Key Details & Version                                                         |
 | :---------------------- | :-------------------- | :---------------------------------------------------------------------------- |
@@ -51,7 +34,7 @@ Single Page Application (SPA). It provides users with:
 
 ---
 
-## 4. Architectural Guidelines for Dependencies
+## 3. Architectural Guidelines for Dependencies
 
 - **Zero Unauthorized Dependencies:** Do not install extra npm packages without
   explicit necessity and alignment with the stack.

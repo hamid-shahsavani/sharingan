@@ -12,7 +12,7 @@ introduced.
 
 - **Strict Feature Partitioning (`src/features`):** The entire application logic
   is partitioned into exactly three feature scopes:
-  1. `main/`: The core content and domain of the application (e.g., mind-map
+  1. `main/`: The core content and domain of the application (e.g.,
      canvas, nodes, edges, viewports, graph management).
   2. `layout/`: Everything related to the application shell layout (headers,
      sidebars, toolbars, docks, floating panels).
@@ -61,7 +61,7 @@ sharingan/
 ├── src/
 │   ├── features/                   # Sole home for all project logic (strictly 3 domains)
 │   │   │
-│   │   ├── main/                   # Core main content & domain (canvas, nodes, mind-map)
+│   │   ├── main/                   # Core main content & domain (canvas, nodes, graphs)
 │   │   │   ├── _components/        # Main domain components (canvas.tsx, node-card.tsx)
 │   │   │   ├── _hooks/             # Main domain hooks
 │   │   │   ├── _stores/            # Jotai state atoms & stores for main domain
