@@ -6,8 +6,7 @@ import {
   ReactFlow,
   ReactFlowProvider,
 } from '@xyflow/react';
-
-import { cn } from '@/lib/utils';
+import { cn } from 'cn';
 
 export interface MindMapCanvasProps {
   className?: string;
