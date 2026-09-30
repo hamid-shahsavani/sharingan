@@ -1,11 +1,11 @@
 import {
   Background,
   BackgroundVariant,
+  type Connection,
   type Edge,
   type Node,
   type NodeTypes,
   type OnEdgesChange,
-  type OnNodeDrag,
   type OnNodesChange,
   ReactFlow,
   useReactFlow,
@@ -20,6 +20,7 @@ export interface MindMapCanvasProps {
   edges: Edge[];
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
+  onConnect?: (connection: Connection) => void;
   isSelectingZoomArea?: boolean;
   onSelectZoomAreaChange?: (isActive: boolean) => void;
   onEditNode?: (nodeId: string) => void;
@@ -28,9 +29,7 @@ export interface MindMapCanvasProps {
   onFocusNode?: (nodeId: string) => void;
   onAiNode?: (nodeId: string) => void;
   onNoteNode?: (nodeId: string) => void;
-  onMoveNode?: (nodeId: string) => void;
   onCollapseNode?: (nodeId: string) => void;
-  onNodeDragStop?: OnNodeDrag;
   className?: string;
   isBackgroundVisible?: boolean;
 }
@@ -121,6 +120,7 @@ export const Canvas = (props: MindMapCanvasProps) => {
       const hasChildren = props.edges.some((edge) => edge.source === node.id);
       return {
         ...node,
+        draggable: false,
         data: {
           ...node.data,
           hasChildren,
@@ -130,12 +130,14 @@ export const Canvas = (props: MindMapCanvasProps) => {
           onFocus: props.onFocusNode,
           onAi: props.onAiNode,
           onNote: props.onNoteNode,
-          onMove: props.onMoveNode,
           onCollapse: props.onCollapseNode,
         },
       };
     }
-    return node;
+    return {
+      ...node,
+      draggable: false,
+    };
   });
 
   return (
@@ -145,7 +147,14 @@ export const Canvas = (props: MindMapCanvasProps) => {
         edges={props.edges}
         onNodesChange={props.onNodesChange}
         onEdgesChange={props.onEdgesChange}
-        onNodeDragStop={props.onNodeDragStop}
+        onConnect={props.onConnect}
+        nodesDraggable={false}
+        nodesConnectable={true}
+        elementsSelectable={true}
+        defaultEdgeOptions={{
+          type: 'smoothstep',
+          style: { stroke: 'var(--node-border, #4b5563)', strokeWidth: 1.5 },
+        }}
         onNodeDoubleClick={(_event, node) => {
           props.onEditNode?.(node.id);
         }}

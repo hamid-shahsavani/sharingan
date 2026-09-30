@@ -10,7 +10,6 @@ import {
   ChevronsDown,
   Copy,
   Layers3,
-  Move,
   Pencil,
   Trash2,
 } from 'lucide-react';
@@ -56,15 +55,9 @@ interface NodeActionButtonProps {
   onClick: () => void;
 }
 
-const NodeActionButton = ({
-  label,
-  compact = false,
-  className,
-  tooltipClassName,
-  children,
-  onClick,
-}: NodeActionButtonProps) => {
+const NodeActionButton = (props: NodeActionButtonProps) => {
   const { zoom } = useViewport();
+  const isCompact = props.compact ?? false;
 
   return (
     <Tooltip>
@@ -73,26 +66,26 @@ const NodeActionButton = ({
           <Button
             type="button"
             variant="ghost"
-            size={compact ? 'icon-xs' : 'icon-sm'}
-            aria-label={label}
+            size={isCompact ? 'icon-xs' : 'icon-sm'}
+            aria-label={props.label}
             onClick={(event) => {
               event.stopPropagation();
-              onClick();
+              props.onClick();
             }}
             className={cn(
               'nodrag nopan flex cursor-pointer items-center justify-center rounded-md border border-transparent transition-all duration-200',
-              compact
+              isCompact
                 ? 'size-5 bg-transparent text-tertiary-foreground hover:bg-transparent hover:brightness-105'
                 : 'size-6 text-node-icon-foreground hover:text-accent-purple',
-              className,
+              props.className,
             )}
           >
-            {children}
+            {props.children}
           </Button>
         }
       />
-      <TooltipContent side="top" zoom={zoom} className={tooltipClassName}>
-        {label}
+      <TooltipContent side="top" zoom={zoom} className={props.tooltipClassName}>
+        {props.label}
       </TooltipContent>
     </Tooltip>
   );
@@ -147,7 +140,7 @@ export const NodeGroup = (props: NodeGroupProps) => {
         >
           <span
             aria-label="آیکون گروه"
-            className="node-drag-handle flex size-9 cursor-grab items-center justify-center rounded-lg border border-node-border bg-linear-to-br from-node-surface-from to-node-surface-to text-node-icon-foreground shadow-[0_6px_16px_var(--node-shadow)] transition-all duration-200 hover:cursor-grab active:cursor-grabbing group-hover/node:border-node-border-hover group-hover/node:from-node-surface-hover-from group-hover/node:to-node-surface-hover-to group-hover/node:text-accent-purple"
+            className="flex size-9 cursor-default items-center justify-center rounded-lg border border-node-border bg-linear-to-br from-node-surface-from to-node-surface-to text-node-icon-foreground shadow-[0_6px_16px_var(--node-shadow)] transition-all duration-200 group-hover/node:border-node-border-hover group-hover/node:from-node-surface-hover-from group-hover/node:to-node-surface-hover-to group-hover/node:text-accent-purple"
           >
             <Layers3 size={17} strokeWidth={1.8} />
           </span>
@@ -180,12 +173,6 @@ export const NodeGroup = (props: NodeGroupProps) => {
                 <ChevronsDown size={13} strokeWidth={1.8} />
               </NodeActionButton>
             )}
-            <NodeActionButton
-              label="انتقال"
-              onClick={() => props.data.onMove?.(props.id)}
-            >
-              <Move size={13} strokeWidth={1.8} />
-            </NodeActionButton>
             <NodeActionButton
               label="تکثیر"
               onClick={() => props.data.onClone?.(props.id)}

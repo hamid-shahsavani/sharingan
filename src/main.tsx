@@ -1,7 +1,13 @@
 import './index.css';
 
-import { ReactFlowProvider, useReactFlow } from '@xyflow/react';
-import { StrictMode, useState } from 'react';
+import {
+  addEdge,
+  type Connection,
+  type Edge,
+  ReactFlowProvider,
+  useReactFlow,
+} from '@xyflow/react';
+import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { CompactControls } from '@/features/layout/_components/compact-controls';
@@ -12,11 +18,12 @@ import {
 } from '@/features/main/_components/node-group-modal';
 import {
   createGroupNode,
-  getClonedNodePosition,
-  getMovedNodePosition,
-  getNewNodePosition,
   updateNodeTitle,
 } from '@/features/main/_utils/node-group';
+import {
+  calculateStandardLayout,
+  wouldCreateCycle,
+} from '@/features/main/_utils/node-layout';
 import { AppToast } from '@/features/shared/_components/app-toast';
 import { OperationToast } from '@/features/shared/_components/operation-toast';
 import { useGraph } from '@/features/shared/_hooks/graph';
@@ -28,7 +35,7 @@ interface NodeGroupCustomData {
 
 export const MindMapApp = () => {
   const graph = useGraph();
-  const { screenToFlowPosition, setCenter } = useReactFlow();
+  const { fitView, setCenter } = useReactFlow();
 
   const [isGroupModalOpen, setIsGroupModalOpen] = useState<boolean>(false);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
@@ -41,6 +48,27 @@ export const MindMapApp = () => {
   const selectedNodeData = selectedNode?.data as
     NodeGroupCustomData | undefined;
 
+  useEffect(() => {
+    if (!graph.isDatabaseReady || graph.nodes.length === 0) {
+      return;
+    }
+
+    const nextNodes = calculateStandardLayout(graph.nodes, graph.edges);
+    const hasDifference = nextNodes.some((node, index) => {
+      const original = graph.nodes[index];
+      return (
+        !original ||
+        original.position.x !== node.position.x ||
+        original.position.y !== node.position.y
+      );
+    });
+
+    if (hasDifference) {
+      graph.setNodes(nextNodes);
+      void graph.saveDocument(nextNodes, graph.edges);
+    }
+  }, [graph]);
+
   const handleNodeGroupSubmit = async (
     values: NodeGroupFormValues,
     nodeId: string | null,
@@ -51,16 +79,13 @@ export const MindMapApp = () => {
       await graph.saveDocument(nextNodes, graph.edges);
       showToast('نود با موفقیت ویرایش شد');
     } else {
-      const centerPosition = screenToFlowPosition({
-        x: window.innerWidth / 2,
-        y: window.innerHeight / 2,
-      });
-      const position = getNewNodePosition(centerPosition, graph.nodes);
-      const newNode = createGroupNode(values.title, position);
-      const nextNodes = [...graph.nodes, newNode];
+      const rawNode = createGroupNode(values.title, { x: 0, y: 0 });
+      const rawNodes = [...graph.nodes, rawNode];
+      const nextNodes = calculateStandardLayout(rawNodes, graph.edges);
       graph.setNodes(nextNodes);
       await graph.saveDocument(nextNodes, graph.edges);
       showToast('نود جدید با موفقیت افزوده شد');
+      void fitView({ padding: 0.25, duration: 400 });
     }
     setIsGroupModalOpen(false);
     setEditingNodeId(null);
@@ -77,14 +102,16 @@ export const MindMapApp = () => {
   };
 
   const handleDeleteNode = async (nodeId: string) => {
-    const nextNodes = graph.nodes.filter((node) => node.id !== nodeId);
-    const nextEdges = graph.edges.filter(
+    const remainingNodes = graph.nodes.filter((node) => node.id !== nodeId);
+    const remainingEdges = graph.edges.filter(
       (edge) => edge.source !== nodeId && edge.target !== nodeId,
     );
+    const nextNodes = calculateStandardLayout(remainingNodes, remainingEdges);
     graph.setNodes(nextNodes);
-    graph.setEdges(nextEdges);
-    await graph.saveDocument(nextNodes, nextEdges);
+    graph.setEdges(remainingEdges);
+    await graph.saveDocument(nextNodes, remainingEdges);
     showToast('نود با موفقیت حذف شد');
+    void fitView({ padding: 0.25, duration: 400 });
   };
 
   const handleCloneNode = async (nodeId: string) => {
@@ -92,28 +119,54 @@ export const MindMapApp = () => {
     if (!sourceNode) return;
     const title =
       (sourceNode.data as NodeGroupCustomData)?.title || 'گروه جدید';
-    const position = getClonedNodePosition(sourceNode, graph.nodes);
-    const newNode = createGroupNode(title, position);
-    const nextNodes = [...graph.nodes, newNode];
+    const rawNode = createGroupNode(title, { x: 0, y: 0 });
+
+    const parentEdge = graph.edges.find((edge) => edge.target === nodeId);
+    let nextEdges = graph.edges;
+    if (parentEdge) {
+      const newEdge: Edge = {
+        id: `edge-${parentEdge.source}-${rawNode.id}`,
+        source: parentEdge.source,
+        target: rawNode.id,
+        type: 'smoothstep',
+      };
+      nextEdges = [...graph.edges, newEdge];
+      graph.setEdges(nextEdges);
+    }
+
+    const rawNodes = [...graph.nodes, rawNode];
+    const nextNodes = calculateStandardLayout(rawNodes, nextEdges);
     graph.setNodes(nextNodes);
-    await graph.saveDocument(nextNodes, graph.edges);
+    await graph.saveDocument(nextNodes, nextEdges);
     showToast('نود با موفقیت کپی شد');
+    void fitView({ padding: 0.25, duration: 400 });
   };
 
-  const handleMoveNode = async (nodeId: string) => {
-    const node = graph.getNodeById(nodeId);
-    if (!node) return;
-    const nextPosition = getMovedNodePosition(node, graph.nodes);
-    const nextNodes = graph.nodes.map((item) =>
-      item.id === nodeId ? { ...item, position: nextPosition } : item,
-    );
+  const handleConnect = async (connection: Connection) => {
+    if (!connection.source || !connection.target) return;
+    if (connection.source === connection.target) return;
+
+    if (wouldCreateCycle(connection.source, connection.target, graph.edges)) {
+      showToast('ایجاد رابطه چرخه‌ای امکان‌پذیر نیست');
+      return;
+    }
+
+    const newEdge: Edge = {
+      id: `edge-${connection.source}-${connection.target}`,
+      source: connection.source,
+      target: connection.target,
+      sourceHandle: connection.sourceHandle,
+      targetHandle: connection.targetHandle,
+      type: 'smoothstep',
+    };
+
+    const nextEdges = addEdge(newEdge, graph.edges);
+    const nextNodes = calculateStandardLayout(graph.nodes, nextEdges);
     graph.setNodes(nextNodes);
-    await graph.saveDocument(nextNodes, graph.edges);
-    showToast('موقعیت نود با موفقیت تغییر کرد');
-  };
-
-  const handleNodeDragStop = () => {
-    showToast('موقعیت نود با موفقیت تغییر کرد');
+    graph.setEdges(nextEdges);
+    await graph.saveDocument(nextNodes, nextEdges);
+    showToast('ارتباط بین نودها با موفقیت برقرار شد');
+    void fitView({ padding: 0.25, duration: 400 });
   };
 
   const handleFocusNode = (nodeId: string) => {
@@ -137,7 +190,9 @@ export const MindMapApp = () => {
         edges={graph.edges}
         onNodesChange={graph.onNodesChange}
         onEdgesChange={graph.onEdgesChange}
-        onNodeDragStop={handleNodeDragStop}
+        onConnect={(connection) => {
+          void handleConnect(connection);
+        }}
         isSelectingZoomArea={isSelectingZoomArea}
         onSelectZoomAreaChange={setIsSelectingZoomArea}
         onEditNode={handleOpenEditModal}
@@ -146,9 +201,6 @@ export const MindMapApp = () => {
         }}
         onCloneNode={(nodeId) => {
           void handleCloneNode(nodeId);
-        }}
-        onMoveNode={(nodeId) => {
-          void handleMoveNode(nodeId);
         }}
         onFocusNode={handleFocusNode}
       />
