@@ -28,7 +28,6 @@ introduced.
   - `_uis/` (shared base UI primitives such as buttons, dialogs, inputs)
   - `_types/` (domain and TypeScript type definitions)
   - `_stores/` (Jotai state stores & atoms)
-  - `_schemas/` (Zod validation schemas)
   - `_utils/` (pure utility functions)
 - **Strict Prohibition of Outside Folders:** Outside of `src/features/`,
   **ABSOLUTELY NO OTHER FOLDERS** may be created!

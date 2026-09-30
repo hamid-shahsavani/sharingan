@@ -27,10 +27,7 @@ persistence (IndexedDB).
 ## 2. Offline Persistence & IndexedDB
 
 - **Persistence Structure:** Modular client-side IndexedDB persistence for:
-  - `workspaces`: Parent/child workspace records.
   - `documents`: Current mind-map nodes and connections.
-  - `versions`: Named or timestamped snapshots for rollback.
-  - `settings`: User preferences and theme.
 - **Async Operations:** All database interactions must be explicitly typed,
   error-handled, and encapsulated in pure helper functions or persistence drivers.
 - **Auto-Save:** Debounced auto-save policy with clear `isDirty` and `isSaving`

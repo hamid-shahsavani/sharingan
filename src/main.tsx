@@ -6,8 +6,10 @@ import { createRoot } from 'react-dom/client';
 
 import { CompactControls } from '@/features/layout/_components/compact-controls';
 import { Canvas } from '@/features/main/_components/canvas';
-import { GroupNodeModal } from '@/features/main/_components/modals/group-node-modal';
-import type { GroupNodeFormValues } from '@/features/main/_schemas/group-node-schema';
+import {
+  type NodeGroupFormValues,
+  NodeGroupModal,
+} from '@/features/main/_components/node-group-modal';
 import { OperationToast } from '@/features/shared/_components/operation-toast';
 import { useMindMapDocument } from '@/features/shared/_hooks/mind-map-document';
 
@@ -21,17 +23,20 @@ export const MindMapApp = () => {
   const [isGroupModalOpen, setIsGroupModalOpen] = useState<boolean>(false);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
 
-  const selectedNode = editingNodeId ? mindMap.getNodeById(editingNodeId) : undefined;
-  const selectedNodeData = selectedNode?.data as NodeGroupCustomData | undefined;
+  const selectedNode = editingNodeId
+    ? mindMap.getNodeById(editingNodeId)
+    : undefined;
+  const selectedNodeData = selectedNode?.data as
+    NodeGroupCustomData | undefined;
 
-  const handleGroupNodeSubmit = async (
-    values: GroupNodeFormValues,
+  const handleNodeGroupSubmit = async (
+    values: NodeGroupFormValues,
     nodeId: string | null,
   ): Promise<void> => {
     if (nodeId) {
-      await mindMap.handleUpdateGroupNode(nodeId, values);
+      await mindMap.handleUpdateNodeGroup(nodeId, values);
     } else {
-      await mindMap.handleCreateGroupNode(values);
+      await mindMap.handleCreateNodeGroup(values);
     }
     setIsGroupModalOpen(false);
     setEditingNodeId(null);
@@ -78,31 +83,13 @@ export const MindMapApp = () => {
         onSelectZoomArea={() => {
           mindMap.setIsSelectingZoomArea(true);
         }}
-        activeVersionId={mindMap.activeVersionId}
-        isDirty={mindMap.isDirty}
-        isSaving={mindMap.isSaving}
-        canUndo={mindMap.canUndo}
-        canRedo={mindMap.canRedo}
-        onUndo={mindMap.handleUndo}
-        onRedo={mindMap.handleRedo}
-        onSaveVersion={() => {
-          void mindMap.handleSaveVersion();
-        }}
-        onSwitchVersion={(versionId) => {
-          void mindMap.handleSwitchVersion(versionId);
-        }}
-        onDeleteVersion={(versionId) => {
-          void mindMap.handleDeleteVersion(versionId);
-        }}
-        onDownloadVersion={mindMap.handleDownloadVersion}
-        versions={mindMap.versions}
       />
-      <GroupNodeModal
+      <NodeGroupModal
         isOpen={isGroupModalOpen}
         nodeId={editingNodeId}
         initialTitle={selectedNodeData?.title}
         onClose={handleCloseModal}
-        onSubmit={handleGroupNodeSubmit}
+        onSubmit={handleNodeGroupSubmit}
       />
     </main>
   );
