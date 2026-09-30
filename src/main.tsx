@@ -11,12 +11,16 @@ import {
   NodeGroupModal,
 } from '@/features/main/_components/node-group-modal';
 import {
-  calculateOffsetPosition,
   createGroupNode,
+  getClonedNodePosition,
+  getMovedNodePosition,
+  getNewNodePosition,
   updateNodeTitle,
 } from '@/features/main/_utils/node-group';
+import { AppToast } from '@/features/shared/_components/app-toast';
 import { OperationToast } from '@/features/shared/_components/operation-toast';
 import { useGraph } from '@/features/shared/_hooks/graph';
+import { showToast } from '@/features/shared/_utils/toast';
 
 interface NodeGroupCustomData {
   title?: string;
@@ -24,11 +28,12 @@ interface NodeGroupCustomData {
 
 export const MindMapApp = () => {
   const graph = useGraph();
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, setCenter } = useReactFlow();
 
   const [isGroupModalOpen, setIsGroupModalOpen] = useState<boolean>(false);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
-  const [isSelectingZoomArea, setIsSelectingZoomArea] = useState<boolean>(false);
+  const [isSelectingZoomArea, setIsSelectingZoomArea] =
+    useState<boolean>(false);
 
   const selectedNode = editingNodeId
     ? graph.getNodeById(editingNodeId)
@@ -44,16 +49,18 @@ export const MindMapApp = () => {
       const nextNodes = updateNodeTitle(graph.nodes, nodeId, values.title);
       graph.setNodes(nextNodes);
       await graph.saveDocument(nextNodes, graph.edges);
+      showToast('نود با موفقیت ویرایش شد');
     } else {
       const centerPosition = screenToFlowPosition({
         x: window.innerWidth / 2,
         y: window.innerHeight / 2,
       });
-      const position = calculateOffsetPosition(centerPosition);
+      const position = getNewNodePosition(centerPosition, graph.nodes);
       const newNode = createGroupNode(values.title, position);
       const nextNodes = [...graph.nodes, newNode];
       graph.setNodes(nextNodes);
       await graph.saveDocument(nextNodes, graph.edges);
+      showToast('نود جدید با موفقیت افزوده شد');
     }
     setIsGroupModalOpen(false);
     setEditingNodeId(null);
@@ -69,6 +76,55 @@ export const MindMapApp = () => {
     setIsGroupModalOpen(true);
   };
 
+  const handleDeleteNode = async (nodeId: string) => {
+    const nextNodes = graph.nodes.filter((node) => node.id !== nodeId);
+    const nextEdges = graph.edges.filter(
+      (edge) => edge.source !== nodeId && edge.target !== nodeId,
+    );
+    graph.setNodes(nextNodes);
+    graph.setEdges(nextEdges);
+    await graph.saveDocument(nextNodes, nextEdges);
+    showToast('نود با موفقیت حذف شد');
+  };
+
+  const handleCloneNode = async (nodeId: string) => {
+    const sourceNode = graph.getNodeById(nodeId);
+    if (!sourceNode) return;
+    const title =
+      (sourceNode.data as NodeGroupCustomData)?.title || 'گروه جدید';
+    const position = getClonedNodePosition(sourceNode, graph.nodes);
+    const newNode = createGroupNode(title, position);
+    const nextNodes = [...graph.nodes, newNode];
+    graph.setNodes(nextNodes);
+    await graph.saveDocument(nextNodes, graph.edges);
+    showToast('نود با موفقیت کپی شد');
+  };
+
+  const handleMoveNode = async (nodeId: string) => {
+    const node = graph.getNodeById(nodeId);
+    if (!node) return;
+    const nextPosition = getMovedNodePosition(node, graph.nodes);
+    const nextNodes = graph.nodes.map((item) =>
+      item.id === nodeId ? { ...item, position: nextPosition } : item,
+    );
+    graph.setNodes(nextNodes);
+    await graph.saveDocument(nextNodes, graph.edges);
+    showToast('موقعیت نود با موفقیت تغییر کرد');
+  };
+
+  const handleNodeDragStop = () => {
+    showToast('موقعیت نود با موفقیت تغییر کرد');
+  };
+
+  const handleFocusNode = (nodeId: string) => {
+    const node = graph.getNodeById(nodeId);
+    if (!node) return;
+    void setCenter(node.position.x, node.position.y, {
+      zoom: 1.5,
+      duration: 400,
+    });
+  };
+
   const handleCloseModal = () => {
     setIsGroupModalOpen(false);
     setEditingNodeId(null);
@@ -81,9 +137,20 @@ export const MindMapApp = () => {
         edges={graph.edges}
         onNodesChange={graph.onNodesChange}
         onEdgesChange={graph.onEdgesChange}
+        onNodeDragStop={handleNodeDragStop}
         isSelectingZoomArea={isSelectingZoomArea}
         onSelectZoomAreaChange={setIsSelectingZoomArea}
         onEditNode={handleOpenEditModal}
+        onDeleteNode={(nodeId) => {
+          void handleDeleteNode(nodeId);
+        }}
+        onCloneNode={(nodeId) => {
+          void handleCloneNode(nodeId);
+        }}
+        onMoveNode={(nodeId) => {
+          void handleMoveNode(nodeId);
+        }}
+        onFocusNode={handleFocusNode}
       />
       <OperationToast
         isVisible={isSelectingZoomArea}
@@ -93,6 +160,7 @@ export const MindMapApp = () => {
       >
         <span>محدوده برای زوم شدن رو انتخاب کن</span>
       </OperationToast>
+      <AppToast />
       <CompactControls
         onOpenCreateGroupModal={handleOpenCreateModal}
         onSelectZoomArea={() => {

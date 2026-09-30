@@ -5,6 +5,7 @@ import {
   type Node,
   type NodeTypes,
   type OnEdgesChange,
+  type OnNodeDrag,
   type OnNodesChange,
   ReactFlow,
   useReactFlow,
@@ -22,6 +23,14 @@ export interface MindMapCanvasProps {
   isSelectingZoomArea?: boolean;
   onSelectZoomAreaChange?: (isActive: boolean) => void;
   onEditNode?: (nodeId: string) => void;
+  onDeleteNode?: (nodeId: string) => void;
+  onCloneNode?: (nodeId: string) => void;
+  onFocusNode?: (nodeId: string) => void;
+  onAiNode?: (nodeId: string) => void;
+  onNoteNode?: (nodeId: string) => void;
+  onMoveNode?: (nodeId: string) => void;
+  onCollapseNode?: (nodeId: string) => void;
+  onNodeDragStop?: OnNodeDrag;
   className?: string;
   isBackgroundVisible?: boolean;
 }
@@ -109,11 +118,20 @@ export const Canvas = (props: MindMapCanvasProps) => {
 
   const nodesWithHandlers = props.nodes.map((node) => {
     if (node.type === 'group') {
+      const hasChildren = props.edges.some((edge) => edge.source === node.id);
       return {
         ...node,
         data: {
           ...node.data,
+          hasChildren,
           onEdit: props.onEditNode,
+          onDelete: props.onDeleteNode,
+          onClone: props.onCloneNode,
+          onFocus: props.onFocusNode,
+          onAi: props.onAiNode,
+          onNote: props.onNoteNode,
+          onMove: props.onMoveNode,
+          onCollapse: props.onCollapseNode,
         },
       };
     }
@@ -127,6 +145,7 @@ export const Canvas = (props: MindMapCanvasProps) => {
         edges={props.edges}
         onNodesChange={props.onNodesChange}
         onEdgesChange={props.onEdgesChange}
+        onNodeDragStop={props.onNodeDragStop}
         onNodeDoubleClick={(_event, node) => {
           props.onEditNode?.(node.id);
         }}

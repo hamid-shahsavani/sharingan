@@ -48,9 +48,9 @@ export const CompactControls = (props: CompactControlsProps) => {
 
   return (
     <TooltipProvider>
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-2000 h-5">
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-2000 h-6">
         <div
-          className="pointer-events-auto absolute inset-x-0 bottom-0 h-5"
+          className="pointer-events-auto absolute inset-x-0 bottom-0 h-6"
           onPointerEnter={handleShowBottomMenu}
           onPointerLeave={handleHideBottomMenu}
         />

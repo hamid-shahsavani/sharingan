@@ -30,13 +30,28 @@ export interface TooltipContentProps
     Pick<
       TooltipPrimitive.Positioner.Props,
       'align' | 'alignOffset' | 'side' | 'sideOffset'
-    > {}
+    > {
+  zoom?: number;
+}
 
 export const TooltipContent = (props: TooltipContentProps) => {
   const side = props.side ?? 'top';
   const sideOffset = props.sideOffset ?? 6;
   const align = props.align ?? 'center';
   const alignOffset = props.alignOffset ?? 0;
+  const zoom = props.zoom;
+  const scaledSideOffset =
+    typeof sideOffset === 'number' && zoom !== undefined
+      ? sideOffset * zoom
+      : sideOffset;
+  const transformOrigin =
+    side === 'top'
+      ? 'bottom center'
+      : side === 'bottom'
+        ? 'top center'
+        : side === 'left'
+          ? 'center right'
+          : 'center left';
 
   return (
     <TooltipPrimitive.Portal>
@@ -44,7 +59,7 @@ export const TooltipContent = (props: TooltipContentProps) => {
         align={align}
         alignOffset={alignOffset}
         side={side}
-        sideOffset={sideOffset}
+        sideOffset={scaledSideOffset}
         className="z-3000"
       >
         <TooltipPrimitive.Popup
@@ -54,7 +69,15 @@ export const TooltipContent = (props: TooltipContentProps) => {
             'z-3000 w-max max-w-[200px] rounded-md border border-surface-panel-border bg-surface-panel px-2 py-1 text-center font-sans text-xs font-light text-foreground shadow-md outline-none transition-[opacity,transform] duration-150 data-starting-style:opacity-0 data-starting-style:scale-95 data-ending-style:opacity-0 data-ending-style:scale-95',
             props.className,
           )}
-          style={props.style}
+          style={{
+            ...props.style,
+            ...(zoom !== undefined
+              ? {
+                  transform: `scale(${zoom})`,
+                  transformOrigin,
+                }
+              : {}),
+          }}
         >
           {props.children}
         </TooltipPrimitive.Popup>

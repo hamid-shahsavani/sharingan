@@ -47,7 +47,7 @@ export const ZoomControl = (props: ZoomControlProps) => {
     <div
       className={
         props.className ??
-        'isolate flex h-10 items-center gap-0 overflow-hidden rounded-xl border border-node-border/60 bg-linear-to-b from-node-surface-from/70 to-node-surface-to/90 shadow-sm backdrop-blur-xl'
+        'isolate flex h-11 items-center gap-0 overflow-hidden rounded-xl border border-node-border/60 bg-linear-to-b from-node-surface-from/70 to-node-surface-to/90 shadow-sm backdrop-blur-xl'
       }
     >
       <Tooltip>
@@ -61,14 +61,14 @@ export const ZoomControl = (props: ZoomControlProps) => {
             onPointerUp={handleStopZooming}
             onPointerLeave={handleStopZooming}
             onPointerCancel={handleStopZooming}
-            className="size-10! rounded-xl p-0 text-node-text transition-all duration-200 hover:bg-white/5 hover:text-accent-purple active:scale-95"
+            className="size-11! rounded-xl p-0 text-node-text transition-all duration-200 hover:bg-white/5 hover:text-accent-purple active:scale-95"
           >
-            <Plus size={20} strokeWidth={1.8} />
+            <Plus className="size-5" strokeWidth={1.8} />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top">بزرگ‌نمایی</TooltipContent>
       </Tooltip>
-      <div className="h-4 w-px bg-node-border/40" />
+      <div className="h-5 w-px bg-node-border/40" />
       <Tooltip>
         <TooltipTrigger render={<span className="inline-block" />}>
           <Button
@@ -80,9 +80,9 @@ export const ZoomControl = (props: ZoomControlProps) => {
             onPointerUp={handleStopZooming}
             onPointerLeave={handleStopZooming}
             onPointerCancel={handleStopZooming}
-            className="size-10! rounded-xl p-0 text-node-text transition-all duration-200 hover:bg-white/5 hover:text-accent-purple active:scale-95"
+            className="size-11! rounded-xl p-0 text-node-text transition-all duration-200 hover:bg-white/5 hover:text-accent-purple active:scale-95"
           >
-            <Minus size={20} strokeWidth={1.8} />
+            <Minus className="size-5" strokeWidth={1.8} />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top">کوچک‌نمایی</TooltipContent>

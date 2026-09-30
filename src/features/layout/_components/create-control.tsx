@@ -22,9 +22,9 @@ export const CreateControl = (props: CreateControlProps) => {
             size="icon"
             aria-label="ایجاد نود"
             onClick={props.onOpenCreateGroupModal}
-            className="size-10! cursor-pointer rounded-xl border border-node-border/60 bg-linear-to-b from-node-surface-from/70 to-node-surface-to/90 text-node-text shadow-sm backdrop-blur-xl transition-all duration-200 hover:from-node-surface-hover-from hover:to-node-surface-hover-to hover:text-accent-purple active:scale-95"
+            className="size-11! cursor-pointer rounded-xl border border-node-border/60 bg-linear-to-b from-node-surface-from/70 to-node-surface-to/90 text-node-text shadow-sm backdrop-blur-xl transition-all duration-200 hover:from-node-surface-hover-from hover:to-node-surface-hover-to hover:text-accent-purple active:scale-95"
           >
-            <FilePlus2 size={20} strokeWidth={1.8} />
+            <FilePlus2 className="size-5" strokeWidth={1.8} />
           </Button>
         }
       />
