@@ -1,6 +1,6 @@
 import './index.css';
 
-import { ReactFlowProvider } from '@xyflow/react';
+import { ReactFlowProvider, useReactFlow } from '@xyflow/react';
 import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -10,21 +10,28 @@ import {
   type NodeGroupFormValues,
   NodeGroupModal,
 } from '@/features/main/_components/node-group-modal';
+import {
+  calculateOffsetPosition,
+  createGroupNode,
+  updateNodeTitle,
+} from '@/features/main/_utils/node-group';
 import { OperationToast } from '@/features/shared/_components/operation-toast';
-import { useMindMapDocument } from '@/features/shared/_hooks/mind-map-document';
+import { useGraph } from '@/features/shared/_hooks/graph';
 
 interface NodeGroupCustomData {
   title?: string;
 }
 
 export const MindMapApp = () => {
-  const mindMap = useMindMapDocument();
+  const graph = useGraph();
+  const { screenToFlowPosition } = useReactFlow();
 
   const [isGroupModalOpen, setIsGroupModalOpen] = useState<boolean>(false);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+  const [isSelectingZoomArea, setIsSelectingZoomArea] = useState<boolean>(false);
 
   const selectedNode = editingNodeId
-    ? mindMap.getNodeById(editingNodeId)
+    ? graph.getNodeById(editingNodeId)
     : undefined;
   const selectedNodeData = selectedNode?.data as
     NodeGroupCustomData | undefined;
@@ -34,9 +41,19 @@ export const MindMapApp = () => {
     nodeId: string | null,
   ): Promise<void> => {
     if (nodeId) {
-      await mindMap.handleUpdateNodeGroup(nodeId, values);
+      const nextNodes = updateNodeTitle(graph.nodes, nodeId, values.title);
+      graph.setNodes(nextNodes);
+      await graph.saveDocument(nextNodes, graph.edges);
     } else {
-      await mindMap.handleCreateNodeGroup(values);
+      const centerPosition = screenToFlowPosition({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+      });
+      const position = calculateOffsetPosition(centerPosition);
+      const newNode = createGroupNode(values.title, position);
+      const nextNodes = [...graph.nodes, newNode];
+      graph.setNodes(nextNodes);
+      await graph.saveDocument(nextNodes, graph.edges);
     }
     setIsGroupModalOpen(false);
     setEditingNodeId(null);
@@ -60,28 +77,26 @@ export const MindMapApp = () => {
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-background">
       <Canvas
-        nodes={mindMap.nodes}
-        edges={mindMap.edges}
-        onNodesChange={mindMap.onNodesChange}
-        onEdgesChange={mindMap.onEdgesChange}
-        isSelectingZoomArea={mindMap.isSelectingZoomArea}
-        onSelectZoomAreaChange={mindMap.setIsSelectingZoomArea}
+        nodes={graph.nodes}
+        edges={graph.edges}
+        onNodesChange={graph.onNodesChange}
+        onEdgesChange={graph.onEdgesChange}
+        isSelectingZoomArea={isSelectingZoomArea}
+        onSelectZoomAreaChange={setIsSelectingZoomArea}
         onEditNode={handleOpenEditModal}
       />
       <OperationToast
-        isVisible={mindMap.isSelectingZoomArea}
+        isVisible={isSelectingZoomArea}
         onCancel={() => {
-          mindMap.setIsSelectingZoomArea(false);
+          setIsSelectingZoomArea(false);
         }}
       >
         <span>محدوده برای زوم شدن رو انتخاب کن</span>
       </OperationToast>
       <CompactControls
-        nodes={mindMap.nodes}
         onOpenCreateGroupModal={handleOpenCreateModal}
-        onCreateNode={mindMap.handleCreateNode}
         onSelectZoomArea={() => {
-          mindMap.setIsSelectingZoomArea(true);
+          setIsSelectingZoomArea(true);
         }}
       />
       <NodeGroupModal

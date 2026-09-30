@@ -5,15 +5,12 @@ import { CreateControl } from '@/features/layout/_components/create-control';
 import { FitViewControl } from '@/features/layout/_components/fit-view-control';
 import { ZoomAreaControl } from '@/features/layout/_components/zoom-area-control';
 import { ZoomControl } from '@/features/layout/_components/zoom-control';
-import type { CreateToolbarAction } from '@/features/shared/_types/workspace-types';
 import { TooltipProvider } from '@/features/shared/_uis/tooltip';
 
 const BOTTOM_MENU_POSITION_CLASS = 'bottom-5!';
 
 export interface CompactControlsProps {
-  nodes: Array<{ id: string }>;
   onOpenCreateGroupModal: () => void;
-  onCreateNode?: (action: CreateToolbarAction) => void;
   onSelectZoomArea: () => void;
 }
 
