@@ -75,6 +75,24 @@ export const MindMapEdge = (props: MindMapEdgeProps) => {
     };
   }, [isActionsOpen, props.style]);
 
+  if (props.id.startsWith('__preview')) {
+    return (
+      <path
+        id={props.id}
+        d={edgePath}
+        fill="none"
+        style={{
+          stroke: 'var(--accent-purple)',
+          strokeWidth: 2,
+          strokeDasharray: '6 4',
+          pointerEvents: 'none',
+          ...props.style,
+        }}
+        className="react-flow__edge-path pointer-events-none transition-all duration-150"
+      />
+    );
+  }
+
   return (
     <>
       <path

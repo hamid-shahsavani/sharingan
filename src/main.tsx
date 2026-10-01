@@ -44,12 +44,31 @@ export const MindMapApp = () => {
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [isSelectingZoomArea, setIsSelectingZoomArea] =
     useState<boolean>(false);
+  const [connectingSourceId, setConnectingSourceId] = useState<string | null>(
+    null,
+  );
 
   const selectedNode = editingNodeId
     ? graph.getNodeById(editingNodeId)
     : undefined;
   const selectedNodeData = selectedNode?.data as
     NodeGroupCustomData | undefined;
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (connectingSourceId) {
+          setConnectingSourceId(null);
+        }
+        if (isSelectingZoomArea) {
+          setIsSelectingZoomArea(false);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [connectingSourceId, isSelectingZoomArea]);
 
   useEffect(() => {
     if (!graph.isDatabaseReady || graph.nodes.length === 0) {
@@ -96,11 +115,13 @@ export const MindMapApp = () => {
   };
 
   const handleOpenCreateModal = () => {
+    setConnectingSourceId(null);
     setEditingNodeId(null);
     setIsGroupModalOpen(true);
   };
 
   const handleOpenEditModal = (nodeId: string) => {
+    setConnectingSourceId(null);
     setEditingNodeId(nodeId);
     setIsGroupModalOpen(true);
   };
@@ -126,6 +147,10 @@ export const MindMapApp = () => {
     if (editingNodeId && toDeleteIds.has(editingNodeId)) {
       setEditingNodeId(null);
       setIsGroupModalOpen(false);
+    }
+
+    if (connectingSourceId && toDeleteIds.has(connectingSourceId)) {
+      setConnectingSourceId(null);
     }
 
     const remainingNodes = graph.nodes.filter(
@@ -189,6 +214,8 @@ export const MindMapApp = () => {
         id: `edge-${parentEdge.source}-${rawNode.id}`,
         source: parentEdge.source,
         target: rawNode.id,
+        sourceHandle: 'parent-source',
+        targetHandle: 'parent-target',
         type: 'smoothstep',
       };
       nextEdges = [...graph.edges, newEdge];
@@ -203,44 +230,50 @@ export const MindMapApp = () => {
     void fitView({ padding: 0.25, duration: 400 });
   };
 
-  const handleConnect = async (connection: Connection) => {
-    if (!connection.source || !connection.target) return;
-    if (connection.source === connection.target) return;
+  const handleStartConnect = (nodeId: string) => {
+    setIsSelectingZoomArea(false);
+    setConnectingSourceId(nodeId);
+  };
+
+  const handleSelectConnectTarget = async (targetId: string) => {
+    if (!connectingSourceId) return;
+    const sourceId = connectingSourceId;
+
+    if (sourceId === targetId) {
+      showToast('نمی‌توانید نود را به خودش متصل کنید', 'error');
+      setConnectingSourceId(null);
+      return;
+    }
 
     const isAlreadyConnected = graph.edges.some(
       (edge) =>
-        (edge.source === connection.source && edge.target === connection.target) ||
-        (edge.source === connection.target && edge.target === connection.source),
+        (edge.source === sourceId && edge.target === targetId) ||
+        (edge.source === targetId && edge.target === sourceId),
     );
 
     if (isAlreadyConnected) {
       showToast('این نود به این نود متصل هست', 'error');
+      setConnectingSourceId(null);
       return;
     }
 
-    const isParentChild = isParentChildEdge({
-      sourceHandle: connection.sourceHandle,
-      targetHandle: connection.targetHandle,
-    });
+    const parentId = targetId;
+    const childId = sourceId;
 
-    if (
-      isParentChild &&
-      wouldCreateCycle(
-        connection.source,
-        connection.target,
-        graph.edges.filter(isParentChildEdge),
-      )
-    ) {
+    const parentChildEdges = graph.edges.filter(isParentChildEdge);
+
+    if (wouldCreateCycle(parentId, childId, parentChildEdges)) {
       showToast('ایجاد رابطه چرخه‌ای در ساختار درختی امکان‌پذیر نیست', 'error');
+      setConnectingSourceId(null);
       return;
     }
 
     const newEdge: Edge = {
-      id: `edge-${connection.source}-${connection.sourceHandle ?? 'default'}-${connection.target}-${connection.targetHandle ?? 'default'}`,
-      source: connection.source,
-      target: connection.target,
-      sourceHandle: connection.sourceHandle,
-      targetHandle: connection.targetHandle,
+      id: `edge-${parentId}-${childId}`,
+      source: parentId,
+      target: childId,
+      sourceHandle: 'parent-source',
+      targetHandle: 'parent-target',
       type: 'smoothstep',
     };
 
@@ -251,6 +284,16 @@ export const MindMapApp = () => {
     await graph.saveDocument(nextNodes, nextEdges);
     showToast('ارتباط بین نودها با موفقیت برقرار شد', 'success');
     void fitView({ padding: 0.25, duration: 400 });
+    setConnectingSourceId(null);
+  };
+
+  const handleCancelConnect = () => {
+    setConnectingSourceId(null);
+  };
+
+  const handleConnect = async (connection: Connection) => {
+    if (!connection.source || !connection.target) return;
+    await handleSelectConnectTarget(connection.target);
   };
 
   const handleFocusNode = (nodeId: string) => {
@@ -289,6 +332,12 @@ export const MindMapApp = () => {
         }}
         isSelectingZoomArea={isSelectingZoomArea}
         onSelectZoomAreaChange={setIsSelectingZoomArea}
+        connectingSourceId={connectingSourceId}
+        onStartConnect={handleStartConnect}
+        onSelectConnectTarget={(targetId) => {
+          void handleSelectConnectTarget(targetId);
+        }}
+        onCancelConnect={handleCancelConnect}
         onEditNode={handleOpenEditModal}
         onDeleteNode={(nodeId) => {
           void handleDeleteNode(nodeId);
@@ -302,6 +351,12 @@ export const MindMapApp = () => {
         }}
       />
       <OperationToast
+        isVisible={Boolean(connectingSourceId)}
+        onCancel={handleCancelConnect}
+      >
+        <span>اون نودی که میخوای بهش متصل بشه رو انتخاب کن</span>
+      </OperationToast>
+      <OperationToast
         isVisible={isSelectingZoomArea}
         onCancel={() => {
           setIsSelectingZoomArea(false);
@@ -313,6 +368,7 @@ export const MindMapApp = () => {
       <CompactControls
         onOpenCreateGroupModal={handleOpenCreateModal}
         onSelectZoomArea={() => {
+          setConnectingSourceId(null);
           setIsSelectingZoomArea(true);
         }}
       />

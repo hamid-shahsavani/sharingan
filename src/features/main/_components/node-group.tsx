@@ -9,6 +9,7 @@ import {
   ChevronsDown,
   Copy,
   Layers3,
+  Link,
   Pencil,
   Trash2,
 } from 'lucide-react';
@@ -36,6 +37,10 @@ export interface NodeGroupData extends Record<string, unknown> {
   onNote?: (id: string) => void;
   onMove?: (id: string) => void;
   onCollapse?: (id: string) => void;
+  onConnectStart?: (id: string) => void;
+  onSelectAsConnectTarget?: (id: string) => void;
+  isConnecting?: boolean;
+  isConnectingSource?: boolean;
   hasChildren?: boolean;
   isCollapsed?: boolean;
   onHover?: (id: string | null) => void;
@@ -43,9 +48,6 @@ export interface NodeGroupData extends Record<string, unknown> {
 }
 
 export type NodeGroupProps = NodeProps<Node<NodeGroupData, 'group'>>;
-
-
-
 
 export const NodeGroup = (props: NodeGroupProps) => {
   const [isActionsOpen, setIsActionsOpen] = useState(false);
@@ -111,18 +113,28 @@ export const NodeGroup = (props: NodeGroupProps) => {
     props.data.onEdit?.(props.id);
   };
 
+  const handleClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (props.data.isConnecting) {
+      event.stopPropagation();
+      props.data.onSelectAsConnectTarget?.(props.id);
+    }
+  };
+
   const hasChildren = Boolean(props.data.hasChildren);
   const isCollapsed = Boolean(props.data.isCollapsed);
+  const isConnecting = Boolean(props.data.isConnecting);
 
   return (
     <div
       ref={nodeRootRef}
+      onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onMouseEnter={() => props.data.onHover?.(props.id)}
       onMouseLeave={() => props.data.onHover?.(null)}
       className={cn(
-        'group/node relative block w-fit max-w-[150px] min-w-0 select-none transition-opacity duration-200 ease-out',
+        'group/node relative block w-fit max-w-[150px] min-w-0 select-none transition-all duration-200 ease-out',
         isActionsOpen && 'z-50',
+        isConnecting && 'cursor-pointer',
       )}
     >
       <TooltipProvider>
@@ -163,6 +175,12 @@ export const NodeGroup = (props: NodeGroupProps) => {
             >
               <Pencil className="size-2.5" strokeWidth={1.8} />
             </NodeActionButton>
+            <NodeActionButton
+              label="اتصال"
+              onClick={() => props.data.onConnectStart?.(props.id)}
+            >
+              <Link className="size-2.5" strokeWidth={1.8} />
+            </NodeActionButton>
             {hasChildren && !isCollapsed && (
               <NodeActionButton
                 label="جمع‌کردن فرزندان"
@@ -187,8 +205,8 @@ export const NodeGroup = (props: NodeGroupProps) => {
         </div>
       </TooltipProvider>
 
-      <div className="mind-node-card group/node-card relative mx-auto box-border flex w-fit max-w-[150px] min-w-0 shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-node-border bg-linear-to-br from-node-surface-from to-node-surface-to px-2 text-center text-node-text shadow-[0_14px_38px_var(--node-shadow)] transition-all duration-200 ease-out select-none hover:border-node-border-hover hover:from-node-surface-hover-from hover:to-node-surface-hover-to group-hover/node:border-node-border-hover">
-        <div className="flex w-full min-w-0 flex-1 items-center justify-center overflow-hidden py-1">
+      <div className="mind-node-card group/node-card relative mx-auto box-border flex h-[25px] min-h-[25px] w-fit max-w-[150px] min-w-0 shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-node-border bg-linear-to-br from-node-surface-from to-node-surface-to px-2 text-center text-node-text shadow-[0_14px_38px_var(--node-shadow)] transition-all duration-200 ease-out select-none hover:border-node-border-hover hover:from-node-surface-hover-from hover:to-node-surface-hover-to group-hover/node:border-node-border-hover">
+        <div className="flex w-full min-w-0 flex-1 items-center justify-center overflow-hidden">
           <div
             dir="rtl"
             className="line-clamp-2 w-full min-w-0 overflow-hidden text-center text-[10px] leading-normal font-normal tracking-[-0.2px] wrap-break-word whitespace-normal text-node-text transition-colors duration-200"
@@ -199,32 +217,17 @@ export const NodeGroup = (props: NodeGroupProps) => {
         <NodeHandle
           id="parent-target"
           nodeId={props.id}
-          type="source"
+          type="target"
           position={Position.Top}
-          isConnectable={props.isConnectable}
-        />
-        <NodeHandle
-          id="relation-target"
-          nodeId={props.id}
-          type="source"
-          position={Position.Left}
-          isConnectable={props.isConnectable}
         />
         <NodeHandle
           id="parent-source"
           nodeId={props.id}
           type="source"
           position={Position.Bottom}
-          isConnectable={props.isConnectable}
-        />
-        <NodeHandle
-          id="relation-source"
-          nodeId={props.id}
-          type="source"
-          position={Position.Right}
-          isConnectable={props.isConnectable}
         />
       </div>
     </div>
   );
 };
+

@@ -46,167 +46,6 @@ export function getNodeWidth(node?: Node): number {
   return Math.min(150, Math.max(48, cardWidth));
 }
 
-export interface SubtreeResult {
-  nodeId: string;
-  nodeWidth: number;
-  rootX: number;
-  width: number;
-  height: number;
-  positions: Map<string, PositionCoordinates>;
-  leftContour: number[];
-  rightContour: number[];
-}
-
-function computeSubtree(
-  nodeId: string,
-  nodeMap: Map<string, Node>,
-  childrenMap: Map<string, string[]>,
-  visited: Set<string>,
-): SubtreeResult {
-  visited.add(nodeId);
-  const node = nodeMap.get(nodeId);
-  const nodeW = getNodeWidth(node);
-
-  const rawChildren = childrenMap.get(nodeId) || [];
-  const children = rawChildren.filter((id) => !visited.has(id) && nodeMap.has(id));
-
-  if (children.length === 0) {
-    return {
-      nodeId,
-      nodeWidth: nodeW,
-      rootX: 0,
-      width: nodeW,
-      height: NODE_CARD_HEIGHT,
-      positions: new Map([[nodeId, { x: 0, y: 0 }]]),
-      leftContour: [0],
-      rightContour: [nodeW],
-    };
-  }
-
-  const childSubtrees: SubtreeResult[] = [];
-  for (const childId of children) {
-    childSubtrees.push(computeSubtree(childId, nodeMap, childrenMap, visited));
-  }
-
-  const childX: number[] = [0];
-  const accumulatedRightContour = [...childSubtrees[0].rightContour];
-
-  for (let i = 1; i < childSubtrees.length; i++) {
-    const child = childSubtrees[i];
-    let shift = 0;
-    const maxSharedDepth = Math.min(
-      accumulatedRightContour.length,
-      child.leftContour.length,
-    );
-
-    for (let d = 0; d < maxSharedDepth; d++) {
-      const required =
-        accumulatedRightContour[d] + SIBLING_GAP - child.leftContour[d];
-      if (required > shift) {
-        shift = required;
-      }
-    }
-
-    childX.push(shift);
-
-    for (let d = 0; d < child.rightContour.length; d++) {
-      const val = shift + child.rightContour[d];
-      if (d < accumulatedRightContour.length) {
-        accumulatedRightContour[d] = Math.max(accumulatedRightContour[d], val);
-      } else {
-        accumulatedRightContour.push(val);
-      }
-    }
-  }
-
-  const firstChildCenter =
-    childX[0] +
-    childSubtrees[0].rootX +
-    childSubtrees[0].nodeWidth / 2;
-  const lastChildCenter =
-    childX[childX.length - 1] +
-    childSubtrees[childSubtrees.length - 1].rootX +
-    childSubtrees[childSubtrees.length - 1].nodeWidth / 2;
-  const childrenCenter = (firstChildCenter + lastChildCenter) / 2;
-
-  let parentX = Math.round(childrenCenter - nodeW / 2);
-
-  if (parentX < 0) {
-    const shiftChildren = -parentX;
-    parentX = 0;
-    for (let i = 0; i < childX.length; i++) {
-      childX[i] += shiftChildren;
-    }
-    for (let d = 0; d < accumulatedRightContour.length; d++) {
-      accumulatedRightContour[d] += shiftChildren;
-    }
-  }
-
-  const positions = new Map<string, PositionCoordinates>([[nodeId, { x: parentX, y: 0 }]]);
-  let maxChildHeight = 0;
-
-  for (let i = 0; i < childSubtrees.length; i++) {
-    const child = childSubtrees[i];
-    const offsetX = childX[i];
-    if (child.height > maxChildHeight) {
-      maxChildHeight = child.height;
-    }
-    for (const [subId, pos] of child.positions) {
-      positions.set(subId, {
-        x: pos.x + offsetX,
-        y: pos.y + LEVEL_Y_STEP,
-      });
-    }
-  }
-
-  const leftContour: number[] = [parentX];
-  const maxChildDepth = Math.max(...childSubtrees.map((c) => c.leftContour.length));
-
-  for (let d = 0; d < maxChildDepth; d++) {
-    let minLeft = Infinity;
-    for (let i = 0; i < childSubtrees.length; i++) {
-      if (d < childSubtrees[i].leftContour.length) {
-        const val = childX[i] + childSubtrees[i].leftContour[d];
-        if (val < minLeft) minLeft = val;
-      }
-    }
-    leftContour.push(minLeft);
-  }
-
-  const rightContour = [parentX + nodeW, ...accumulatedRightContour];
-
-  let minAllX = parentX;
-  let maxAllX = parentX + nodeW;
-  for (const [subId, pos] of positions) {
-    const w = getNodeWidth(nodeMap.get(subId));
-    if (pos.x < minAllX) minAllX = pos.x;
-    if (pos.x + w > maxAllX) maxAllX = pos.x + w;
-  }
-
-  if (minAllX !== 0) {
-    for (const [id, pos] of positions) {
-      positions.set(id, { x: pos.x - minAllX, y: pos.y });
-    }
-    parentX -= minAllX;
-    maxAllX -= minAllX;
-    for (let d = 0; d < leftContour.length; d++) {
-      leftContour[d] -= minAllX;
-      rightContour[d] -= minAllX;
-    }
-  }
-
-  return {
-    nodeId,
-    nodeWidth: nodeW,
-    rootX: parentX,
-    width: maxAllX,
-    height: LEVEL_Y_STEP + maxChildHeight,
-    positions,
-    leftContour,
-    rightContour,
-  };
-}
-
 export function wouldCreateCycle(
   sourceId: string,
   targetId: string,
@@ -296,126 +135,333 @@ export function getDescendantNodeIds(
   return descendantIds;
 }
 
+interface SubtreePlacement {
+  rootId: string;
+  width: number;
+  rootX: number;
+  positions: Map<string, PositionCoordinates>;
+  leftContour: number[];
+  rightContour: number[];
+}
+
+function computeTreeLayout(
+  rootId: string,
+  nodeMap: Map<string, Node>,
+  childrenMap: Map<string, string[]>,
+  visited: Set<string>,
+): SubtreePlacement {
+  visited.add(rootId);
+  const node = nodeMap.get(rootId);
+  const nodeW = getNodeWidth(node);
+
+  const children = (childrenMap.get(rootId) || []).filter(
+    (id) => !visited.has(id),
+  );
+
+  if (children.length === 0) {
+    const positions = new Map<string, PositionCoordinates>();
+    positions.set(rootId, { x: 0, y: 0 });
+    return {
+      rootId,
+      width: nodeW,
+      rootX: Math.round(nodeW / 2),
+      positions,
+      leftContour: [0],
+      rightContour: [nodeW],
+    };
+  }
+
+  // Lay out each child subtree recursively
+  const childSubtrees: SubtreePlacement[] = [];
+  for (const childId of children) {
+    childSubtrees.push(
+      computeTreeLayout(childId, nodeMap, childrenMap, visited),
+    );
+  }
+
+  // Position children side-by-side using contours with exact STANDARD_GAP
+  const childX: number[] = [0];
+  const accRightContour = [...childSubtrees[0].rightContour];
+
+  for (let i = 1; i < childSubtrees.length; i++) {
+    const child = childSubtrees[i];
+    let minOffset = 0;
+    const maxD = Math.min(accRightContour.length, child.leftContour.length);
+
+    for (let d = 0; d < maxD; d++) {
+      const needed = accRightContour[d] + STANDARD_GAP - child.leftContour[d];
+      if (needed > minOffset) {
+        minOffset = needed;
+      }
+    }
+
+    childX.push(minOffset);
+
+    for (let d = 0; d < child.rightContour.length; d++) {
+      const val = minOffset + child.rightContour[d];
+      if (d < accRightContour.length) {
+        accRightContour[d] = Math.max(accRightContour[d], val);
+      } else {
+        accRightContour.push(val);
+      }
+    }
+  }
+
+  // Symmetrically center parent over children
+  const firstChildCenter = childX[0] + childSubtrees[0].rootX;
+  const lastChildCenter =
+    childX[childX.length - 1] + childSubtrees[childSubtrees.length - 1].rootX;
+  const childrenCenter = (firstChildCenter + lastChildCenter) / 2;
+
+  let parentX = Math.round(childrenCenter - nodeW / 2);
+
+  if (parentX < 0) {
+    const shift = -parentX;
+    parentX = 0;
+    for (let i = 0; i < childX.length; i++) {
+      childX[i] += shift;
+    }
+    for (let d = 0; d < accRightContour.length; d++) {
+      accRightContour[d] += shift;
+    }
+  }
+
+  const positions = new Map<string, PositionCoordinates>();
+  positions.set(rootId, { x: parentX, y: 0 });
+
+  for (let i = 0; i < childSubtrees.length; i++) {
+    const child = childSubtrees[i];
+    const offX = childX[i];
+    for (const [id, pos] of child.positions) {
+      positions.set(id, {
+        x: pos.x + offX,
+        y: pos.y + LEVEL_Y_STEP,
+      });
+    }
+  }
+
+  // Build left contour
+  const leftContour: number[] = [parentX];
+  const maxChildDepth = Math.max(
+    ...childSubtrees.map((c) => c.leftContour.length),
+  );
+  for (let d = 0; d < maxChildDepth; d++) {
+    let minLeft = Infinity;
+    for (let i = 0; i < childSubtrees.length; i++) {
+      if (d < childSubtrees[i].leftContour.length) {
+        const val = childX[i] + childSubtrees[i].leftContour[d];
+        if (val < minLeft) minLeft = val;
+      }
+    }
+    leftContour.push(minLeft);
+  }
+
+  const rightContour: number[] = [parentX + nodeW, ...accRightContour];
+
+  let minAllX = parentX;
+  let maxAllX = parentX + nodeW;
+  for (const [id, pos] of positions) {
+    const w = getNodeWidth(nodeMap.get(id));
+    if (pos.x < minAllX) minAllX = pos.x;
+    if (pos.x + w > maxAllX) maxAllX = pos.x + w;
+  }
+
+  return {
+    rootId,
+    width: maxAllX - minAllX,
+    rootX: parentX + Math.round(nodeW / 2),
+    positions,
+    leftContour,
+    rightContour,
+  };
+}
+
 export function calculateStandardLayout(
   nodes: readonly Node[],
   edges: readonly Edge[],
 ): Node[] {
   if (nodes.length === 0) return [];
+  if (nodes.length === 1) {
+    return [
+      {
+        ...nodes[0],
+        position: { x: 0, y: 0 },
+        draggable: false,
+      },
+    ];
+  }
 
   const nodeMap = new Map<string, Node>();
   for (const node of nodes) {
     nodeMap.set(node.id, node);
   }
 
-  const parentMap = new Map<string, string>();
+  // 1. Build adjacency list of parent-child relationships
   const childrenMap = new Map<string, string[]>();
+  const parentMap = new Map<string, string[]>();
 
-  const wouldFormCycle = (source: string, target: string): boolean => {
-    if (source === target) return true;
-    let current: string | undefined = source;
-    const seen = new Set<string>();
-    while (current) {
-      if (current === target) return true;
-      if (seen.has(current)) break;
-      seen.add(current);
-      current = parentMap.get(current);
-    }
-    return false;
-  };
+  for (const node of nodes) {
+    childrenMap.set(node.id, []);
+    parentMap.set(node.id, []);
+  }
 
   for (const edge of edges) {
-    if (!isParentChildEdge(edge)) {
-      continue;
+    if (!isParentChildEdge(edge)) continue;
+    if (!nodeMap.has(edge.source) || !nodeMap.has(edge.target)) continue;
+    if (edge.source === edge.target) continue;
+
+    const currentChildren = childrenMap.get(edge.source)!;
+    if (!currentChildren.includes(edge.target)) {
+      currentChildren.push(edge.target);
     }
 
-    if (nodeMap.has(edge.source) && nodeMap.has(edge.target)) {
-      if (
-        !parentMap.has(edge.target) &&
-        !wouldFormCycle(edge.source, edge.target)
-      ) {
-        parentMap.set(edge.target, edge.source);
-        const list = childrenMap.get(edge.source) || [];
-        list.push(edge.target);
-        childrenMap.set(edge.source, list);
-      }
+    const currentParents = parentMap.get(edge.target)!;
+    if (!currentParents.includes(edge.source)) {
+      currentParents.push(edge.source);
     }
   }
 
-  const rootIds: string[] = [];
-  for (const node of nodes) {
-    if (!parentMap.has(node.id)) {
-      rootIds.push(node.id);
-    }
-  }
+  // 2. Identify roots (nodes with in-degree 0 in the DAG)
+  // Preserve natural ordering from original nodes array
+  const roots = nodes
+    .filter((n) => (parentMap.get(n.id) || []).length === 0)
+    .map((n) => n.id);
 
-  const multiNodeRoots: string[] = [];
-  const singleNodeRoots: string[] = [];
-
-  for (const rootId of rootIds) {
-    const children = childrenMap.get(rootId) || [];
-    if (children.length > 0) {
-      multiNodeRoots.push(rootId);
-    } else {
-      singleNodeRoots.push(rootId);
-    }
-  }
-
-  const allPositions = new Map<string, PositionCoordinates>();
   const visited = new Set<string>();
+  const trees: SubtreePlacement[] = [];
 
-  let currentX = 0;
-
-  for (const rootId of multiNodeRoots) {
+  // Lay out each root tree
+  for (const rootId of roots) {
     if (!visited.has(rootId)) {
-      const tree = computeSubtree(rootId, nodeMap, childrenMap, visited);
-      for (const [id, pos] of tree.positions) {
-        allPositions.set(id, {
-          x: pos.x + currentX,
-          y: pos.y,
-        });
-      }
-      currentX += tree.width + SECTION_GAP;
+      trees.push(computeTreeLayout(rootId, nodeMap, childrenMap, visited));
     }
   }
 
-  const unplacedSingles = singleNodeRoots.filter((id) => !visited.has(id));
-  for (const rootId of unplacedSingles) {
-    const w = getNodeWidth(nodeMap.get(rootId));
-    allPositions.set(rootId, { x: currentX, y: 0 });
-    currentX += w + SIBLING_GAP;
-    visited.add(rootId);
-  }
-
-  // Safety fallback for any unvisited nodes (e.g. cycles)
-  let fallbackX = 0;
-  for (const [, pos] of allPositions) {
-    if (pos.x > fallbackX) fallbackX = pos.x;
-  }
-  fallbackX += SECTION_GAP;
-
+  // Safety fallback for any unvisited nodes (cycles or DAG cross roots)
   for (const node of nodes) {
-    if (!allPositions.has(node.id)) {
-      allPositions.set(node.id, { x: fallbackX, y: 0 });
-      fallbackX += getNodeWidth(node) + SIBLING_GAP;
+    if (!visited.has(node.id)) {
+      trees.push(computeTreeLayout(node.id, nodeMap, childrenMap, visited));
     }
   }
 
-  let minX = Infinity;
+  if (trees.length === 0) return [];
+
+  // 3. Merge trees horizontally using contour spacing
+  const allPositions = new Map<string, PositionCoordinates>();
+  const treeOffsets: number[] = [0];
+  const accRightContour = [...trees[0].rightContour];
+
+  for (let i = 1; i < trees.length; i++) {
+    const tree = trees[i];
+    let minOffset = 0;
+    const maxD = Math.min(accRightContour.length, tree.leftContour.length);
+
+    for (let d = 0; d < maxD; d++) {
+      const needed = accRightContour[d] + STANDARD_GAP - tree.leftContour[d];
+      if (needed > minOffset) {
+        minOffset = needed;
+      }
+    }
+
+    treeOffsets.push(minOffset);
+
+    for (let d = 0; d < tree.rightContour.length; d++) {
+      const val = minOffset + tree.rightContour[d];
+      if (d < accRightContour.length) {
+        accRightContour[d] = Math.max(accRightContour[d], val);
+      } else {
+        accRightContour.push(val);
+      }
+    }
+  }
+
+  for (let i = 0; i < trees.length; i++) {
+    const tree = trees[i];
+    const offX = treeOffsets[i];
+    for (const [id, pos] of tree.positions) {
+      allPositions.set(id, {
+        x: pos.x + offX,
+        y: pos.y,
+      });
+    }
+  }
+
+  // 4. DAG multi-parent barycenter adjustment
+  for (const node of nodes) {
+    const parents = parentMap.get(node.id) || [];
+    if (parents.length > 1) {
+      const parentCenters = parents.map((pId) => {
+        const pPos = allPositions.get(pId)!;
+        const pW = getNodeWidth(nodeMap.get(pId));
+        return pPos.x + pW / 2;
+      });
+      const avgParentCenter =
+        parentCenters.reduce((s, c) => s + c, 0) / parentCenters.length;
+      const curPos = allPositions.get(node.id)!;
+      const w = getNodeWidth(node);
+      allPositions.set(node.id, {
+        x: Math.round(avgParentCenter - w / 2),
+        y: curPos.y,
+      });
+    }
+  }
+
+  // 5. Ensure minimum STANDARD_GAP between any adjacent nodes on the same horizontal level
+  const levelsByY = new Map<number, string[]>();
+  for (const [id, pos] of allPositions) {
+    const list = levelsByY.get(pos.y) ?? [];
+    list.push(id);
+    levelsByY.set(pos.y, list);
+  }
+
+  for (const [, levelNodeIds] of levelsByY) {
+    levelNodeIds.sort(
+      (a, b) => allPositions.get(a)!.x - allPositions.get(b)!.x,
+    );
+    for (let i = 0; i < levelNodeIds.length - 1; i++) {
+      const leftId = levelNodeIds[i];
+      const rightId = levelNodeIds[i + 1];
+      const leftPos = allPositions.get(leftId)!;
+      const rightPos = allPositions.get(rightId)!;
+      const leftW = getNodeWidth(nodeMap.get(leftId));
+      const minRightX = leftPos.x + leftW + STANDARD_GAP;
+      if (rightPos.x < minRightX) {
+        const shiftX = minRightX - rightPos.x;
+        const queue = [rightId];
+        const visitedDesc = new Set<string>();
+        while (queue.length > 0) {
+          const curr = queue.shift()!;
+          if (visitedDesc.has(curr)) continue;
+          visitedDesc.add(curr);
+          const p = allPositions.get(curr);
+          if (p) {
+            allPositions.set(curr, { x: p.x + shiftX, y: p.y });
+          }
+          for (const ch of childrenMap.get(curr) || []) {
+            queue.push(ch);
+          }
+        }
+      }
+    }
+  }
+
+  // 6. Center all nodes around (0, 0)
+  let minAllX = Infinity;
   let maxX = -Infinity;
-  let minY = Infinity;
+  let minAllY = Infinity;
   let maxY = -Infinity;
 
   for (const [id, pos] of allPositions) {
     const node = nodeMap.get(id);
     const w = getNodeWidth(node);
-    if (pos.x < minX) minX = pos.x;
+    if (pos.x < minAllX) minAllX = pos.x;
     if (pos.x + w > maxX) maxX = pos.x + w;
-    if (pos.y < minY) minY = pos.y;
+    if (pos.y < minAllY) minAllY = pos.y;
     if (pos.y + NODE_CARD_HEIGHT > maxY) maxY = pos.y + NODE_CARD_HEIGHT;
   }
 
-  const shiftX = Math.round((minX + maxX) / 2);
-  const shiftY = Math.round((minY + maxY) / 2);
+  const shiftX = Math.round((minAllX + maxX) / 2);
+  const shiftY = Math.round((minAllY + maxY) / 2);
 
   return nodes.map((node) => {
     const pos = allPositions.get(node.id) ?? node.position;
@@ -429,4 +475,6 @@ export function calculateStandardLayout(
     };
   });
 }
+
+
 

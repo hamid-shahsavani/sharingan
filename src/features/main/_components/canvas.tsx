@@ -38,6 +38,10 @@ export interface MindMapCanvasProps {
   onConnect?: (connection: Connection) => void;
   isSelectingZoomArea?: boolean;
   onSelectZoomAreaChange?: (isActive: boolean) => void;
+  connectingSourceId?: string | null;
+  onStartConnect?: (nodeId: string) => void;
+  onSelectConnectTarget?: (nodeId: string) => void;
+  onCancelConnect?: () => void;
   onEditNode?: (nodeId: string) => void;
   onDeleteNode?: (nodeId: string) => void;
   onCloneNode?: (nodeId: string) => void;
@@ -166,6 +170,7 @@ export const Canvas = (props: MindMapCanvasProps) => {
   );
 
   const nodesWithHandlers = useMemo(() => {
+    const isConnecting = Boolean(props.connectingSourceId);
     return props.nodes.map((node) => {
       if (node.type === 'group') {
         const hasChildren = props.edges.some(
@@ -177,6 +182,9 @@ export const Canvas = (props: MindMapCanvasProps) => {
           data: {
             ...node.data,
             hasChildren,
+            isConnecting,
+            onConnectStart: props.onStartConnect,
+            onSelectAsConnectTarget: props.onSelectConnectTarget,
             onEdit: props.onEditNode,
             onDelete: props.onDeleteNode,
             onClone: props.onCloneNode,
@@ -197,6 +205,9 @@ export const Canvas = (props: MindMapCanvasProps) => {
   }, [
     props.nodes,
     props.edges,
+    props.connectingSourceId,
+    props.onStartConnect,
+    props.onSelectConnectTarget,
     props.onEditNode,
     props.onDeleteNode,
     props.onCloneNode,
@@ -229,6 +240,36 @@ export const Canvas = (props: MindMapCanvasProps) => {
     });
   }, [props.edges, props.onDeleteEdge]);
 
+  const edgesToRender = useMemo(() => {
+    if (
+      !props.connectingSourceId ||
+      !hoveredNodeId ||
+      hoveredNodeId === props.connectingSourceId
+    ) {
+      return edgesWithHandlers;
+    }
+
+    const parentId = hoveredNodeId;
+    const childId = props.connectingSourceId;
+
+    const previewEdge: Edge = {
+      id: '__preview_connecting_edge__',
+      source: parentId,
+      target: childId,
+      sourceHandle: 'parent-source',
+      targetHandle: 'parent-target',
+      type: 'smoothstep',
+      animated: true,
+      style: {
+        stroke: 'var(--accent-purple)',
+        strokeWidth: 2,
+        strokeDasharray: '6 4',
+      },
+    };
+
+    return [...edgesWithHandlers, previewEdge];
+  }, [edgesWithHandlers, props.connectingSourceId, hoveredNodeId]);
+
   const flowNodes = useMemo(() => {
     return [...parentSectionNodes, ...nodesWithHandlers];
   }, [parentSectionNodes, nodesWithHandlers]);
@@ -237,7 +278,7 @@ export const Canvas = (props: MindMapCanvasProps) => {
     <div className={cn('relative h-full w-full', props.className)}>
       <ReactFlow
         nodes={flowNodes}
-        edges={edgesWithHandlers}
+        edges={edgesToRender}
         onNodesChange={props.onNodesChange}
         onEdgesChange={props.onEdgesChange}
         onConnect={props.onConnect}
@@ -257,11 +298,19 @@ export const Canvas = (props: MindMapCanvasProps) => {
             handleNodeHover(null);
           }
         }}
+        onNodeClick={(_event, node) => {
+          if (props.connectingSourceId && node.type === 'group') {
+            props.onSelectConnectTarget?.(node.id);
+          }
+        }}
         onPaneClick={() => {
           handleNodeHover(null);
+          if (props.connectingSourceId) {
+            props.onCancelConnect?.();
+          }
         }}
         nodesDraggable={false}
-        nodesConnectable={true}
+        nodesConnectable={false}
         elementsSelectable={true}
         defaultEdgeOptions={{
           type: 'smoothstep',
