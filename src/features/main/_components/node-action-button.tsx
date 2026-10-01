@@ -54,7 +54,7 @@ export const NodeActionButton = (props: NodeActionButtonProps) => {
         sideOffset={4}
         zoom={zoom}
         className={cn(
-          'text-[8px] font-normal px-1.5 py-0.5 rounded-md leading-normal shadow-xs',
+          'pointer-events-none text-[8px] font-normal px-1.5 py-0.5 rounded-md leading-normal shadow-xs',
           props.tooltipClassName,
         )}
       >

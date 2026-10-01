@@ -14,6 +14,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import {
+  type FocusEvent,
   type KeyboardEvent,
   type MouseEvent,
   useCallback,
@@ -51,7 +52,9 @@ export interface NodeGroupData extends Record<string, unknown> {
 export type NodeGroupProps = NodeProps<Node<NodeGroupData, 'group'>>;
 
 export const NodeGroup = (props: NodeGroupProps) => {
+  const isConnecting = Boolean(props.data.isConnecting);
   const [isActionsOpen, setIsActionsOpen] = useState(false);
+  const isActionsVisible = isActionsOpen && !isConnecting;
   const actionsTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
@@ -59,15 +62,27 @@ export const NodeGroup = (props: NodeGroupProps) => {
   const { getViewport } = useReactFlow();
 
   const showActions = useCallback(() => {
+    if (props.data.isConnecting) return;
     clearTimeout(actionsTimeoutRef.current);
     setIsActionsOpen(true);
-  }, []);
+  }, [props.data.isConnecting]);
 
   const hideActions = useCallback(() => {
     actionsTimeoutRef.current = setTimeout(() => {
       setIsActionsOpen(false);
     }, 400);
   }, []);
+
+  useEffect(() => {
+    const nodeElement =
+      nodeRootRef.current?.closest<HTMLElement>('.react-flow__node');
+    if (!nodeElement) return;
+    if (isActionsVisible) {
+      nodeElement.style.zIndex = '1000';
+    } else {
+      nodeElement.style.zIndex = '';
+    }
+  }, [isActionsVisible]);
 
   useEffect(() => {
     return () => clearTimeout(actionsTimeoutRef.current);
@@ -131,9 +146,31 @@ export const NodeGroup = (props: NodeGroupProps) => {
     }
   };
 
+  const handleMouseEnter = useCallback(() => {
+    props.data.onHover?.(props.id);
+    showActions();
+  }, [props.data, props.id, showActions]);
+
+  const handleMouseLeave = useCallback(() => {
+    props.data.onHover?.(null);
+    hideActions();
+  }, [props.data, hideActions]);
+
+  const handleFocus = useCallback(() => {
+    showActions();
+  }, [showActions]);
+
+  const handleBlur = useCallback(
+    (event: FocusEvent<HTMLDivElement>) => {
+      if (!event.currentTarget.contains(event.relatedTarget)) {
+        hideActions();
+      }
+    },
+    [hideActions],
+  );
+
   const hasChildren = Boolean(props.data.hasChildren);
   const isCollapsed = Boolean(props.data.isCollapsed);
-  const isConnecting = Boolean(props.data.isConnecting);
 
   return (
     <div
@@ -143,11 +180,13 @@ export const NodeGroup = (props: NodeGroupProps) => {
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onKeyDown={handleKeyDown}
-      onMouseEnter={() => props.data.onHover?.(props.id)}
-      onMouseLeave={() => props.data.onHover?.(null)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
       className={cn(
         'group/node relative block w-fit max-w-37.5 min-w-0 select-none transition-all duration-200 ease-out',
-        isActionsOpen && 'z-50',
+        isActionsVisible && 'z-50',
         isConnecting && 'cursor-pointer',
       )}
     >
@@ -160,7 +199,7 @@ export const NodeGroup = (props: NodeGroupProps) => {
         >
           <span
             aria-hidden="true"
-            className="pointer-events-auto absolute top-full inset-x-0 h-2.5"
+            className="pointer-events-auto absolute top-full -inset-x-10 h-3"
           />
           <span
             aria-label="آیکون گروه"
@@ -174,7 +213,7 @@ export const NodeGroup = (props: NodeGroupProps) => {
             onMouseLeave={hideActions}
             className={cn(
               'absolute bottom-[calc(100%+4px)] left-1/2 z-100001 flex -translate-x-1/2 items-center gap-0.5 rounded-lg border border-node-border bg-linear-to-br from-node-surface-from/95 to-node-surface-to/95 p-0.5 shadow-[0_8px_20px_var(--node-shadow)] backdrop-blur-sm transition-[opacity,transform] duration-200 ease-out',
-              isActionsOpen
+              isActionsVisible
                 ? 'pointer-events-auto translate-y-0 scale-100 opacity-100'
                 : 'pointer-events-none translate-y-1 scale-95 opacity-0',
             )}
