@@ -164,7 +164,7 @@ function computeTreeLayout(
     return {
       rootId,
       width: nodeW,
-      rootX: Math.round(nodeW / 2),
+      rootX: nodeW / 2,
       positions,
       leftContour: [0],
       rightContour: [nodeW],
@@ -269,7 +269,7 @@ function computeTreeLayout(
   return {
     rootId,
     width: maxAllX - minAllX,
-    rootX: parentX + Math.round(nodeW / 2),
+    rootX: parentX + nodeW / 2,
     positions,
     leftContour,
     rightContour,
