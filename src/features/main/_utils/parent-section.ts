@@ -25,7 +25,7 @@ export const calculateParentSections = (
 
   const childrenByParent = new Map<string, string[]>();
   for (const edge of edges) {
-    if (!isParentChildEdge(edge)) {
+    if (edge.hidden || !isParentChildEdge(edge)) {
       continue;
     }
     const children = childrenByParent.get(edge.source) ?? [];

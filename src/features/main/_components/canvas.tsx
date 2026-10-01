@@ -27,7 +27,10 @@ import { MindMapEdge } from '@/features/main/_components/mind-map-edge';
 import { NodeGroup } from '@/features/main/_components/node-group';
 import { ParentSectionNode } from '@/features/main/_components/parent-section-node';
 import { type NodeVisualBounds } from '@/features/main/_types/flow';
-import { isParentChildEdge } from '@/features/main/_utils/node-layout';
+import {
+  getCollapsedNodeIds,
+  isParentChildEdge,
+} from '@/features/main/_utils/node-layout';
 import { calculateParentSections } from '@/features/main/_utils/parent-section';
 
 export interface MindMapCanvasProps {
@@ -49,6 +52,7 @@ export interface MindMapCanvasProps {
   onAiNode?: (nodeId: string) => void;
   onNoteNode?: (nodeId: string) => void;
   onCollapseNode?: (nodeId: string) => void;
+  onExpandNode?: (nodeId: string) => void;
   onDeleteEdge?: (edgeId: string) => void;
   className?: string;
   isBackgroundVisible?: boolean;
@@ -169,19 +173,33 @@ export const Canvas = (props: MindMapCanvasProps) => {
     [],
   );
 
+  const collapsedNodeIds = useMemo(() => {
+    return getCollapsedNodeIds(props.nodes, props.edges);
+  }, [props.nodes, props.edges]);
+
   const nodesWithHandlers = useMemo(() => {
     const isConnecting = Boolean(props.connectingSourceId);
     return props.nodes.map((node) => {
+      const isHidden = collapsedNodeIds.has(node.id);
       if (node.type === 'group') {
-        const hasChildren = props.edges.some(
-          (edge) => isParentChildEdge(edge) && edge.source === node.id,
-        );
+        const hasChildren =
+          props.edges.some(
+            (edge) => isParentChildEdge(edge) && edge.source === node.id,
+          ) ||
+          props.nodes.some((other) => other.parentId === node.id);
+        const isCollapsed = Boolean(node.data?.isCollapsed);
         return {
           ...node,
+          hidden: isHidden,
+          style: {
+            ...node.style,
+            ...(isHidden ? { display: 'none' } : {}),
+          },
           draggable: false,
           data: {
             ...node.data,
             hasChildren,
+            isCollapsed,
             isConnecting,
             onConnectStart: props.onStartConnect,
             onSelectAsConnectTarget: props.onSelectConnectTarget,
@@ -192,6 +210,7 @@ export const Canvas = (props: MindMapCanvasProps) => {
             onAi: props.onAiNode,
             onNote: props.onNoteNode,
             onCollapse: props.onCollapseNode,
+            onExpand: props.onExpandNode ?? props.onCollapseNode,
             onHover: handleNodeHover,
             onVisualBoundsChange: handleNodeVisualBoundsChange,
           },
@@ -199,12 +218,18 @@ export const Canvas = (props: MindMapCanvasProps) => {
       }
       return {
         ...node,
+        hidden: isHidden,
+        style: {
+          ...node.style,
+          ...(isHidden ? { display: 'none' } : {}),
+        },
         draggable: false,
       };
     });
   }, [
     props.nodes,
     props.edges,
+    collapsedNodeIds,
     props.connectingSourceId,
     props.onStartConnect,
     props.onSelectConnectTarget,
@@ -215,30 +240,35 @@ export const Canvas = (props: MindMapCanvasProps) => {
     props.onAiNode,
     props.onNoteNode,
     props.onCollapseNode,
+    props.onExpandNode,
     handleNodeHover,
     handleNodeVisualBoundsChange,
   ]);
 
-  const parentSectionNodes = useMemo(() => {
-    return calculateParentSections(
-      props.nodes,
-      props.edges,
-      hoveredNodeId,
-      nodeVisualBounds,
-    );
-  }, [props.nodes, props.edges, hoveredNodeId, nodeVisualBounds]);
-
   const edgesWithHandlers = useMemo(() => {
     return props.edges.map((edge) => {
+      const isHidden =
+        collapsedNodeIds.has(edge.source) ||
+        collapsedNodeIds.has(edge.target);
       return {
         ...edge,
+        hidden: isHidden,
         data: {
           ...edge.data,
           onDelete: props.onDeleteEdge,
         },
       };
     });
-  }, [props.edges, props.onDeleteEdge]);
+  }, [props.edges, collapsedNodeIds, props.onDeleteEdge]);
+
+  const parentSectionNodes = useMemo(() => {
+    return calculateParentSections(
+      nodesWithHandlers,
+      edgesWithHandlers,
+      hoveredNodeId,
+      nodeVisualBounds,
+    );
+  }, [nodesWithHandlers, edgesWithHandlers, hoveredNodeId, nodeVisualBounds]);
 
   const edgesToRender = useMemo(() => {
     if (
@@ -312,12 +342,10 @@ export const Canvas = (props: MindMapCanvasProps) => {
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={true}
+        zoomOnDoubleClick={false}
         defaultEdgeOptions={{
           type: 'smoothstep',
           style: { stroke: 'var(--node-border, #4b5563)', strokeWidth: 1.5 },
-        }}
-        onNodeDoubleClick={(_event, node) => {
-          props.onEditNode?.(node.id);
         }}
         nodeTypes={NODE_TYPES}
         edgeTypes={EDGE_TYPES}

@@ -10,6 +10,7 @@ import {
   Copy,
   Layers3,
   Link,
+  MoreHorizontal,
   Pencil,
   Trash2,
 } from 'lucide-react';
@@ -39,6 +40,7 @@ export interface NodeGroupData extends Record<string, unknown> {
   onNote?: (id: string) => void;
   onMove?: (id: string) => void;
   onCollapse?: (id: string) => void;
+  onExpand?: (id: string) => void;
   onConnectStart?: (id: string) => void;
   onSelectAsConnectTarget?: (id: string) => void;
   isConnecting?: boolean;
@@ -124,10 +126,6 @@ export const NodeGroup = (props: NodeGroupProps) => {
     return () => resizeObserver.disconnect();
   }, [getViewport, props.id, props.data.onVisualBoundsChange]);
 
-  const handleDoubleClick = (event: MouseEvent<HTMLDivElement>) => {
-    event.stopPropagation();
-    props.data.onEdit?.(props.id);
-  };
 
   const handleClick = (event: MouseEvent<HTMLDivElement>) => {
     if (props.data.isConnecting) {
@@ -178,7 +176,6 @@ export const NodeGroup = (props: NodeGroupProps) => {
       role="button"
       tabIndex={0}
       onClick={handleClick}
-      onDoubleClick={handleDoubleClick}
       onKeyDown={handleKeyDown}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -242,6 +239,16 @@ export const NodeGroup = (props: NodeGroupProps) => {
                 <ChevronsDown className="size-2.5" strokeWidth={1.8} />
               </NodeActionButton>
             )}
+            {hasChildren && isCollapsed && (
+              <NodeActionButton
+                label="نمایش فرزندان"
+                onClick={() =>
+                  (props.data.onExpand ?? props.data.onCollapse)?.(props.id)
+                }
+              >
+                <ChevronsDown className="size-2.5 rotate-180" strokeWidth={1.8} />
+              </NodeActionButton>
+            )}
             <NodeActionButton
               label="تکثیر"
               onClick={() => props.data.onClone?.(props.id)}
@@ -280,6 +287,15 @@ export const NodeGroup = (props: NodeGroupProps) => {
           position={Position.Bottom}
         />
       </div>
+
+      {hasChildren && isCollapsed && (
+        <div
+          aria-hidden="true"
+          className="nodrag nopan absolute -bottom-5 left-1/2 z-20 flex h-3.5 w-5 -translate-x-1/2 items-center justify-center rounded-full border border-node-border bg-linear-to-br from-node-surface-from to-node-surface-to text-node-icon-foreground shadow-[0_4px_10px_var(--node-shadow)] transition-colors group-hover/node:border-node-border-hover"
+        >
+          <MoreHorizontal className="size-2.5" strokeWidth={2} />
+        </div>
+      )}
     </div>
   );
 };

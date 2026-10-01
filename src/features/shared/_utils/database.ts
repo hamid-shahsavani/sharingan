@@ -10,6 +10,7 @@ export interface MindMapNode {
   id: string;
   title: string;
   position: MindMapNodePosition;
+  isCollapsed?: boolean;
   data?: MindMapNode[];
 }
 
@@ -52,6 +53,7 @@ export const treeToFlow = (
         position: item.position,
         data: {
           title: item.title,
+          isCollapsed: item.isCollapsed,
         },
       });
 
@@ -84,6 +86,7 @@ export const flowToTree = (
       id: node.id,
       title,
       position: { x: node.position.x, y: node.position.y },
+      isCollapsed: Boolean(node.data?.isCollapsed),
     });
   }
 

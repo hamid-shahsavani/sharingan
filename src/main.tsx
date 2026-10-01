@@ -307,6 +307,21 @@ export const MindMapApp = () => {
     void fitView({ padding: 0.25, duration: 400 });
   };
 
+  const handleCollapseNode = async (nodeId: string): Promise<void> => {
+    const nextNodes = graph.nodes.map((node) => {
+      if (node.id !== nodeId) return node;
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          isCollapsed: !node.data?.isCollapsed,
+        },
+      };
+    });
+    graph.setNodes(nextNodes);
+    await graph.saveDocument(nextNodes, graph.edges);
+  };
+
   const handleCloseModal = () => {
     setIsGroupModalOpen(false);
     setEditingNodeId(null);
@@ -338,6 +353,9 @@ export const MindMapApp = () => {
           void handleCloneNode(nodeId);
         }}
         onFocusNode={handleFocusNode}
+        onCollapseNode={(nodeId) => {
+          void handleCollapseNode(nodeId);
+        }}
         onDeleteEdge={(edgeId) => {
           void handleDeleteEdge(edgeId);
         }}

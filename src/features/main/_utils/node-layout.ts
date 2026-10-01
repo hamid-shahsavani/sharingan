@@ -135,6 +135,57 @@ export function getDescendantNodeIds(
   return descendantIds;
 }
 
+export function getCollapsedNodeIds(
+  nodes: readonly Node[],
+  edges: readonly Edge[],
+): Set<string> {
+  const childrenMap = new Map<string, string[]>();
+
+  for (const node of nodes) {
+    if (node.parentId) {
+      const list = childrenMap.get(node.parentId) ?? [];
+      list.push(node.id);
+      childrenMap.set(node.parentId, list);
+    }
+  }
+
+  for (const edge of edges) {
+    if (!isParentChildEdge(edge)) {
+      continue;
+    }
+
+    const list = childrenMap.get(edge.source) ?? [];
+    if (!list.includes(edge.target)) {
+      list.push(edge.target);
+    }
+    childrenMap.set(edge.source, list);
+  }
+
+  const hiddenIds = new Set<string>();
+  const pending: string[] = [];
+
+  for (const node of nodes) {
+    if (node.data?.isCollapsed) {
+      const children = childrenMap.get(node.id) ?? [];
+      if (children.length > 0) {
+        pending.push(...children);
+      }
+    }
+  }
+
+  while (pending.length > 0) {
+    const nodeId = pending.pop();
+    if (!nodeId || hiddenIds.has(nodeId)) continue;
+    hiddenIds.add(nodeId);
+    const children = childrenMap.get(nodeId);
+    if (children) {
+      pending.push(...children);
+    }
+  }
+
+  return hiddenIds;
+}
+
 interface SubtreePlacement {
   rootId: string;
   width: number;
