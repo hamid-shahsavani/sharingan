@@ -56,7 +56,7 @@ export const DialogContent = (props: DialogContentProps) => {
         {...props}
         data-slot="dialog-content"
         className={cn(
-          'fixed top-1/2 left-1/2 z-5001 flex w-full max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-2xl border border-node-border bg-surface-panel p-6 text-foreground shadow-[0_24px_60px_var(--node-shadow)] backdrop-blur-2xl ring-1 ring-white/10 outline-none transition-[scale,opacity] duration-150 ease-out data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0',
+          'fixed top-1/2 left-1/2 z-5001 flex w-full max-w-md -translate-1/2 flex-col gap-4 rounded-2xl border border-node-border bg-surface-panel p-6 text-foreground shadow-[0_24px_60px_var(--node-shadow)] backdrop-blur-2xl ring-1 ring-white/10 outline-none transition-[scale,opacity] duration-150 ease-out data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0',
           props.className,
         )}
       >

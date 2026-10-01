@@ -68,7 +68,10 @@ export default defineConfig([
           project: path.join(__dirname, 'tsconfig.json'),
         },
       },
-      'better-tailwindcss': { entryPoint: 'src/index.css' },
+      'better-tailwindcss': {
+        entryPoint: 'src/index.css',
+        rootFontSize: 16,
+      },
     },
     rules: {
       ...react.configs.recommended.rules,
@@ -114,6 +117,7 @@ export default defineConfig([
       'better-tailwindcss/no-unnecessary-whitespace': 'warn',
       'better-tailwindcss/no-duplicate-classes': 'warn',
       'better-tailwindcss/enforce-consistent-variable-syntax': 'warn',
+      'better-tailwindcss/enforce-canonical-classes': 'warn',
       'object-shorthand': ['error', 'always'],
     },
   },

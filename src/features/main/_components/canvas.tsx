@@ -275,7 +275,7 @@ export const Canvas = (props: MindMapCanvasProps) => {
   }, [parentSectionNodes, nodesWithHandlers]);
 
   return (
-    <div className={cn('relative h-full w-full', props.className)}>
+    <div className={cn('relative size-full', props.className)}>
       <ReactFlow
         nodes={flowNodes}
         edges={edgesToRender}

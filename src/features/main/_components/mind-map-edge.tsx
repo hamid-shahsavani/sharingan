@@ -129,7 +129,7 @@ export const MindMapEdge = (props: MindMapEdgeProps) => {
             pointerEvents: isActionsOpen ? 'all' : 'none',
             zIndex: 100005,
           }}
-          className="nodrag nopan z-[100005]"
+          className="nodrag nopan z-100005"
         >
           <TooltipProvider>
             <div
