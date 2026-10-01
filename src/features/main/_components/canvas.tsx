@@ -3,6 +3,7 @@ import {
   BackgroundVariant,
   type Connection,
   type Edge,
+  type EdgeTypes,
   type Node,
   type NodeTypes,
   type OnEdgesChange,
@@ -11,9 +12,20 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 import { cn } from 'cn';
-import { type MouseEvent, useEffect, useRef } from 'react';
+import {
+  type MouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
+import { MindMapEdge } from '@/features/main/_components/mind-map-edge';
 import { NodeGroup } from '@/features/main/_components/node-group';
+import { ParentSectionNode } from '@/features/main/_components/parent-section-node';
+import { type NodeVisualBounds } from '@/features/main/_types/flow';
+import { calculateParentSections } from '@/features/main/_utils/parent-section';
 
 export interface MindMapCanvasProps {
   nodes: Node[];
@@ -30,12 +42,19 @@ export interface MindMapCanvasProps {
   onAiNode?: (nodeId: string) => void;
   onNoteNode?: (nodeId: string) => void;
   onCollapseNode?: (nodeId: string) => void;
+  onDeleteEdge?: (edgeId: string) => void;
   className?: string;
   isBackgroundVisible?: boolean;
 }
 
 const NODE_TYPES: NodeTypes = {
   group: NodeGroup,
+  'parent-section': ParentSectionNode,
+};
+
+const EDGE_TYPES: EdgeTypes = {
+  smoothstep: MindMapEdge,
+  default: MindMapEdge,
 };
 
 export interface InitialViewportProps {
@@ -115,39 +134,121 @@ export const Canvas = (props: MindMapCanvasProps) => {
   const isBackgroundVisible = props.isBackgroundVisible ?? true;
   const isSelectingZoomArea = props.isSelectingZoomArea ?? false;
 
-  const nodesWithHandlers = props.nodes.map((node) => {
-    if (node.type === 'group') {
-      const hasChildren = props.edges.some((edge) => edge.source === node.id);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [nodeVisualBounds, setNodeVisualBounds] = useState<
+    Record<string, NodeVisualBounds>
+  >({});
+
+  const handleNodeHover = useCallback((nodeId: string | null) => {
+    setHoveredNodeId(nodeId);
+  }, []);
+
+  const handleNodeVisualBoundsChange = useCallback(
+    (nodeId: string, bounds: NodeVisualBounds) => {
+      setNodeVisualBounds((prev) => {
+        const existing = prev[nodeId];
+        if (
+          existing &&
+          Math.abs(existing.left - bounds.left) < 1 &&
+          Math.abs(existing.top - bounds.top) < 1 &&
+          Math.abs(existing.right - bounds.right) < 1 &&
+          Math.abs(existing.bottom - bounds.bottom) < 1
+        ) {
+          return prev;
+        }
+        return { ...prev, [nodeId]: bounds };
+      });
+    },
+    [],
+  );
+
+  const nodesWithHandlers = useMemo(() => {
+    return props.nodes.map((node) => {
+      if (node.type === 'group') {
+        const hasChildren = props.edges.some((edge) => edge.source === node.id);
+        return {
+          ...node,
+          draggable: false,
+          data: {
+            ...node.data,
+            hasChildren,
+            onEdit: props.onEditNode,
+            onDelete: props.onDeleteNode,
+            onClone: props.onCloneNode,
+            onFocus: props.onFocusNode,
+            onAi: props.onAiNode,
+            onNote: props.onNoteNode,
+            onCollapse: props.onCollapseNode,
+            onHover: handleNodeHover,
+            onVisualBoundsChange: handleNodeVisualBoundsChange,
+          },
+        };
+      }
       return {
         ...node,
         draggable: false,
+      };
+    });
+  }, [
+    props.nodes,
+    props.edges,
+    props.onEditNode,
+    props.onDeleteNode,
+    props.onCloneNode,
+    props.onFocusNode,
+    props.onAiNode,
+    props.onNoteNode,
+    props.onCollapseNode,
+    handleNodeHover,
+    handleNodeVisualBoundsChange,
+  ]);
+
+  const parentSectionNodes = useMemo(() => {
+    return calculateParentSections(
+      props.nodes,
+      props.edges,
+      hoveredNodeId,
+      nodeVisualBounds,
+    );
+  }, [props.nodes, props.edges, hoveredNodeId, nodeVisualBounds]);
+
+  const edgesWithHandlers = useMemo(() => {
+    return props.edges.map((edge) => {
+      return {
+        ...edge,
         data: {
-          ...node.data,
-          hasChildren,
-          onEdit: props.onEditNode,
-          onDelete: props.onDeleteNode,
-          onClone: props.onCloneNode,
-          onFocus: props.onFocusNode,
-          onAi: props.onAiNode,
-          onNote: props.onNoteNode,
-          onCollapse: props.onCollapseNode,
+          ...edge.data,
+          onDelete: props.onDeleteEdge,
         },
       };
-    }
-    return {
-      ...node,
-      draggable: false,
-    };
-  });
+    });
+  }, [props.edges, props.onDeleteEdge]);
+
+  const flowNodes = useMemo(() => {
+    return [...parentSectionNodes, ...nodesWithHandlers];
+  }, [parentSectionNodes, nodesWithHandlers]);
 
   return (
     <div className={cn('relative h-full w-full', props.className)}>
       <ReactFlow
-        nodes={nodesWithHandlers}
-        edges={props.edges}
+        nodes={flowNodes}
+        edges={edgesWithHandlers}
         onNodesChange={props.onNodesChange}
         onEdgesChange={props.onEdgesChange}
         onConnect={props.onConnect}
+        onNodeMouseEnter={(_event, node) => {
+          if (node.type !== 'parent-section') {
+            handleNodeHover(node.id);
+          }
+        }}
+        onNodeMouseLeave={(_event, node) => {
+          if (node.type !== 'parent-section') {
+            handleNodeHover(null);
+          }
+        }}
+        onPaneClick={() => {
+          handleNodeHover(null);
+        }}
         nodesDraggable={false}
         nodesConnectable={true}
         elementsSelectable={true}
@@ -159,6 +260,7 @@ export const Canvas = (props: MindMapCanvasProps) => {
           props.onEditNode?.(node.id);
         }}
         nodeTypes={NODE_TYPES}
+        edgeTypes={EDGE_TYPES}
         fitView
         fitViewOptions={{ padding: 0.25, duration: 0 }}
         minZoom={0.2}

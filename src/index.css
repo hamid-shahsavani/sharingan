@@ -247,3 +247,13 @@
   box-shadow: none !important;
   border: none !important;
 }
+
+.react-flow__node.parent-section,
+.react-flow__node-parent-section {
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+
+.react-flow__node:hover {
+  z-index: 100001 !important;
+}

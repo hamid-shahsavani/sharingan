@@ -52,7 +52,6 @@ export const treeToFlow = (
         data: {
           title: item.title,
         },
-        ...(parentId ? { parentId } : {}),
       });
 
       if (parentId) {

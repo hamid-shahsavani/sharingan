@@ -74,7 +74,8 @@ export const MindMapApp = () => {
     nodeId: string | null,
   ): Promise<void> => {
     if (nodeId) {
-      const nextNodes = updateNodeTitle(graph.nodes, nodeId, values.title);
+      const updatedNodes = updateNodeTitle(graph.nodes, nodeId, values.title);
+      const nextNodes = calculateStandardLayout(updatedNodes, graph.edges);
       graph.setNodes(nextNodes);
       await graph.saveDocument(nextNodes, graph.edges);
       showToast('نود با موفقیت ویرایش شد');
@@ -178,6 +179,16 @@ export const MindMapApp = () => {
     });
   };
 
+  const handleDeleteEdge = async (edgeId: string) => {
+    const nextEdges = graph.edges.filter((edge) => edge.id !== edgeId);
+    const nextNodes = calculateStandardLayout(graph.nodes, nextEdges);
+    graph.setNodes(nextNodes);
+    graph.setEdges(nextEdges);
+    await graph.saveDocument(nextNodes, nextEdges);
+    showToast('ارتباط با موفقیت حذف شد');
+    void fitView({ padding: 0.25, duration: 400 });
+  };
+
   const handleCloseModal = () => {
     setIsGroupModalOpen(false);
     setEditingNodeId(null);
@@ -203,6 +214,9 @@ export const MindMapApp = () => {
           void handleCloneNode(nodeId);
         }}
         onFocusNode={handleFocusNode}
+        onDeleteEdge={(edgeId) => {
+          void handleDeleteEdge(edgeId);
+        }}
       />
       <OperationToast
         isVisible={isSelectingZoomArea}

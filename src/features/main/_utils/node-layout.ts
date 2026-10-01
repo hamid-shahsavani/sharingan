@@ -5,137 +5,206 @@ export interface PositionCoordinates {
   y: number;
 }
 
-export const NODE_LAYOUT_WIDTH = 180;
-export const NODE_LAYOUT_HEIGHT = 80;
-export const NODE_HORIZONTAL_GAP = 40;
-export const NODE_VERTICAL_GAP = 80;
-export const TREE_HORIZONTAL_GAP = 80;
-export const TREE_ROW_GAP = 120;
-export const MAX_TREES_PER_ROW = 3;
-export const MAX_ROW_WIDTH = 1200;
+export const NODE_CARD_HEIGHT = 32;
+export const NODE_ICON_HEIGHT = 36;
+export const NODE_TOTAL_HEIGHT = NODE_CARD_HEIGHT + NODE_ICON_HEIGHT;
+export const LEVEL_Y_STEP = 110;
+export const SIBLING_GAP = 40;
+export const SECTION_GAP = 64;
+export const STANDARD_GAP = SIBLING_GAP;
 
-interface SubtreeMetrics {
-  width: number;
-  height: number;
-  depth: number;
-  childrenMetrics: Map<string, SubtreeMetrics>;
+let textMeasureCanvas: HTMLCanvasElement | null = null;
+
+function estimateTextWidth(text: string): number {
+  if (typeof document !== 'undefined') {
+    if (!textMeasureCanvas) {
+      textMeasureCanvas = document.createElement('canvas');
+    }
+    const context = textMeasureCanvas.getContext('2d');
+    if (context) {
+      context.font = '10px IRANSansX, sans-serif';
+      const measured = context.measureText(text).width;
+      if (measured > 0) {
+        return measured;
+      }
+    }
+  }
+
+  return text.length * 7;
 }
 
-function computeSubtreeMetrics(
+export function getNodeWidth(node?: Node): number {
+  if (typeof node?.measured?.width === 'number' && node.measured.width > 0) {
+    return Math.ceil(node.measured.width);
+  }
+
+  const title = typeof node?.data?.title === 'string' ? node.data.title : '';
+  if (!title) return 48;
+
+  const textWidth = estimateTextWidth(title);
+  const cardWidth = Math.ceil(textWidth + 18);
+  return Math.min(150, Math.max(48, cardWidth));
+}
+
+export interface SubtreeResult {
+  nodeId: string;
+  nodeWidth: number;
+  rootX: number;
+  width: number;
+  height: number;
+  positions: Map<string, PositionCoordinates>;
+  leftContour: number[];
+  rightContour: number[];
+}
+
+function computeSubtree(
   nodeId: string,
+  nodeMap: Map<string, Node>,
   childrenMap: Map<string, string[]>,
   visited: Set<string>,
-): SubtreeMetrics {
+): SubtreeResult {
   visited.add(nodeId);
-  const children = childrenMap.get(nodeId) || [];
-  const validChildren = children.filter((id) => !visited.has(id));
+  const node = nodeMap.get(nodeId);
+  const nodeW = getNodeWidth(node);
 
-  const childrenMetrics = new Map<string, SubtreeMetrics>();
+  const rawChildren = childrenMap.get(nodeId) || [];
+  const children = rawChildren.filter((id) => !visited.has(id) && nodeMap.has(id));
 
-  if (validChildren.length === 0) {
+  if (children.length === 0) {
     return {
-      width: NODE_LAYOUT_WIDTH,
-      height: NODE_LAYOUT_HEIGHT,
-      depth: 0,
-      childrenMetrics,
+      nodeId,
+      nodeWidth: nodeW,
+      rootX: 0,
+      width: nodeW,
+      height: NODE_CARD_HEIGHT,
+      positions: new Map([[nodeId, { x: 0, y: 0 }]]),
+      leftContour: [0],
+      rightContour: [nodeW],
     };
   }
 
-  let totalChildrenWidth = 0;
-  let maxChildDepth = 0;
+  const childSubtrees: SubtreeResult[] = [];
+  for (const childId of children) {
+    childSubtrees.push(computeSubtree(childId, nodeMap, childrenMap, visited));
+  }
 
-  for (let i = 0; i < validChildren.length; i++) {
-    const childId = validChildren[i];
-    const metrics = computeSubtreeMetrics(childId, childrenMap, visited);
-    childrenMetrics.set(childId, metrics);
-    totalChildrenWidth += metrics.width;
-    if (i > 0) {
-      totalChildrenWidth += NODE_HORIZONTAL_GAP;
+  const childX: number[] = [0];
+  const accumulatedRightContour = [...childSubtrees[0].rightContour];
+
+  for (let i = 1; i < childSubtrees.length; i++) {
+    const child = childSubtrees[i];
+    let shift = 0;
+    const maxSharedDepth = Math.min(
+      accumulatedRightContour.length,
+      child.leftContour.length,
+    );
+
+    for (let d = 0; d < maxSharedDepth; d++) {
+      const required =
+        accumulatedRightContour[d] + SIBLING_GAP - child.leftContour[d];
+      if (required > shift) {
+        shift = required;
+      }
     }
-    if (metrics.depth > maxChildDepth) {
-      maxChildDepth = metrics.depth;
+
+    childX.push(shift);
+
+    for (let d = 0; d < child.rightContour.length; d++) {
+      const val = shift + child.rightContour[d];
+      if (d < accumulatedRightContour.length) {
+        accumulatedRightContour[d] = Math.max(accumulatedRightContour[d], val);
+      } else {
+        accumulatedRightContour.push(val);
+      }
     }
   }
 
-  const depth = maxChildDepth + 1;
-  const width = Math.max(NODE_LAYOUT_WIDTH, totalChildrenWidth);
-  const height =
-    (depth + 1) * (NODE_LAYOUT_HEIGHT + NODE_VERTICAL_GAP) - NODE_VERTICAL_GAP;
+  const firstChildCenter =
+    childX[0] +
+    childSubtrees[0].rootX +
+    childSubtrees[0].nodeWidth / 2;
+  const lastChildCenter =
+    childX[childX.length - 1] +
+    childSubtrees[childSubtrees.length - 1].rootX +
+    childSubtrees[childSubtrees.length - 1].nodeWidth / 2;
+  const childrenCenter = (firstChildCenter + lastChildCenter) / 2;
+
+  let parentX = Math.round(childrenCenter - nodeW / 2);
+
+  if (parentX < 0) {
+    const shiftChildren = -parentX;
+    parentX = 0;
+    for (let i = 0; i < childX.length; i++) {
+      childX[i] += shiftChildren;
+    }
+    for (let d = 0; d < accumulatedRightContour.length; d++) {
+      accumulatedRightContour[d] += shiftChildren;
+    }
+  }
+
+  const positions = new Map<string, PositionCoordinates>([[nodeId, { x: parentX, y: 0 }]]);
+  let maxChildHeight = 0;
+
+  for (let i = 0; i < childSubtrees.length; i++) {
+    const child = childSubtrees[i];
+    const offsetX = childX[i];
+    if (child.height > maxChildHeight) {
+      maxChildHeight = child.height;
+    }
+    for (const [subId, pos] of child.positions) {
+      positions.set(subId, {
+        x: pos.x + offsetX,
+        y: pos.y + LEVEL_Y_STEP,
+      });
+    }
+  }
+
+  const leftContour: number[] = [parentX];
+  const maxChildDepth = Math.max(...childSubtrees.map((c) => c.leftContour.length));
+
+  for (let d = 0; d < maxChildDepth; d++) {
+    let minLeft = Infinity;
+    for (let i = 0; i < childSubtrees.length; i++) {
+      if (d < childSubtrees[i].leftContour.length) {
+        const val = childX[i] + childSubtrees[i].leftContour[d];
+        if (val < minLeft) minLeft = val;
+      }
+    }
+    leftContour.push(minLeft);
+  }
+
+  const rightContour = [parentX + nodeW, ...accumulatedRightContour];
+
+  let minAllX = parentX;
+  let maxAllX = parentX + nodeW;
+  for (const [subId, pos] of positions) {
+    const w = getNodeWidth(nodeMap.get(subId));
+    if (pos.x < minAllX) minAllX = pos.x;
+    if (pos.x + w > maxAllX) maxAllX = pos.x + w;
+  }
+
+  if (minAllX !== 0) {
+    for (const [id, pos] of positions) {
+      positions.set(id, { x: pos.x - minAllX, y: pos.y });
+    }
+    parentX -= minAllX;
+    maxAllX -= minAllX;
+    for (let d = 0; d < leftContour.length; d++) {
+      leftContour[d] -= minAllX;
+      rightContour[d] -= minAllX;
+    }
+  }
 
   return {
-    width,
-    height,
-    depth,
-    childrenMetrics,
+    nodeId,
+    nodeWidth: nodeW,
+    rootX: parentX,
+    width: maxAllX,
+    height: LEVEL_Y_STEP + maxChildHeight,
+    positions,
+    leftContour,
+    rightContour,
   };
-}
-
-function layoutTree(
-  nodeId: string,
-  startX: number,
-  startY: number,
-  metrics: SubtreeMetrics,
-  childrenMap: Map<string, string[]>,
-  positions: Map<string, PositionCoordinates>,
-  visited: Set<string>,
-): void {
-  visited.add(nodeId);
-  const children = (childrenMap.get(nodeId) || []).filter((id) =>
-    metrics.childrenMetrics.has(id),
-  );
-
-  if (children.length === 0) {
-    positions.set(nodeId, {
-      x: Math.round(startX + (metrics.width - NODE_LAYOUT_WIDTH) / 2),
-      y: Math.round(startY),
-    });
-    return;
-  }
-
-  let totalChildrenWidth = 0;
-  for (let i = 0; i < children.length; i++) {
-    const childMetrics = metrics.childrenMetrics.get(children[i]);
-    if (!childMetrics) continue;
-    totalChildrenWidth += childMetrics.width;
-    if (i > 0) {
-      totalChildrenWidth += NODE_HORIZONTAL_GAP;
-    }
-  }
-
-  const childrenStartX =
-    metrics.width > totalChildrenWidth
-      ? startX + (metrics.width - totalChildrenWidth) / 2
-      : startX;
-
-  const childNextY = startY + NODE_LAYOUT_HEIGHT + NODE_VERTICAL_GAP;
-  let currentChildX = childrenStartX;
-
-  for (const childId of children) {
-    const childMetrics = metrics.childrenMetrics.get(childId);
-    if (!childMetrics) continue;
-    layoutTree(
-      childId,
-      currentChildX,
-      childNextY,
-      childMetrics,
-      childrenMap,
-      positions,
-      visited,
-    );
-    currentChildX += childMetrics.width + NODE_HORIZONTAL_GAP;
-  }
-
-  const firstChildPos = positions.get(children[0]);
-  const lastChildPos = positions.get(children[children.length - 1]);
-  const parentX =
-    firstChildPos && lastChildPos
-      ? Math.round((firstChildPos.x + lastChildPos.x) / 2)
-      : Math.round(startX + (metrics.width - NODE_LAYOUT_WIDTH) / 2);
-
-  positions.set(nodeId, {
-    x: parentX,
-    y: Math.round(startY),
-  });
 }
 
 export function wouldCreateCycle(
@@ -146,17 +215,17 @@ export function wouldCreateCycle(
   if (sourceId === targetId) return true;
 
   const visited = new Set<string>();
-  const queue: string[] = [sourceId];
+  const queue: string[] = [targetId];
 
   while (queue.length > 0) {
     const current = queue.shift();
     if (!current) continue;
-    if (current === targetId) return true;
+    if (current === sourceId) return true;
     visited.add(current);
 
     for (const edge of edges) {
-      if (edge.target === current && !visited.has(edge.source)) {
-        queue.push(edge.source);
+      if (edge.source === current && !visited.has(edge.target)) {
+        queue.push(edge.target);
       }
     }
   }
@@ -175,30 +244,42 @@ export function calculateStandardLayout(
     nodeMap.set(node.id, node);
   }
 
-  const childrenMap = new Map<string, string[]>();
   const parentMap = new Map<string, string>();
+  const childrenMap = new Map<string, string[]>();
+
+  const wouldFormCycle = (source: string, target: string): boolean => {
+    if (source === target) return true;
+    let current: string | undefined = source;
+    const seen = new Set<string>();
+    while (current) {
+      if (current === target) return true;
+      if (seen.has(current)) break;
+      seen.add(current);
+      current = parentMap.get(current);
+    }
+    return false;
+  };
 
   for (const edge of edges) {
+    if (
+      edge.sourceHandle &&
+      edge.sourceHandle !== 'parent-source' &&
+      edge.targetHandle &&
+      edge.targetHandle !== 'parent-target'
+    ) {
+      continue;
+    }
+
     if (nodeMap.has(edge.source) && nodeMap.has(edge.target)) {
-      if (!parentMap.has(edge.target)) {
+      if (
+        !parentMap.has(edge.target) &&
+        !wouldFormCycle(edge.source, edge.target)
+      ) {
         parentMap.set(edge.target, edge.source);
         const list = childrenMap.get(edge.source) || [];
         list.push(edge.target);
         childrenMap.set(edge.source, list);
       }
-    }
-  }
-
-  for (const node of nodes) {
-    if (
-      node.parentId &&
-      nodeMap.has(node.parentId) &&
-      !parentMap.has(node.id)
-    ) {
-      parentMap.set(node.id, node.parentId);
-      const list = childrenMap.get(node.parentId) || [];
-      list.push(node.id);
-      childrenMap.set(node.parentId, list);
     }
   }
 
@@ -209,108 +290,154 @@ export function calculateStandardLayout(
     }
   }
 
-  const treeMetrics: Array<{ rootId: string; metrics: SubtreeMetrics }> = [];
-  const metricsVisited = new Set<string>();
+  const multiNodeRoots: string[] = [];
+  const singleNodeRoots: string[] = [];
 
   for (const rootId of rootIds) {
-    if (!metricsVisited.has(rootId)) {
-      const metrics = computeSubtreeMetrics(
-        rootId,
-        childrenMap,
-        metricsVisited,
-      );
-      treeMetrics.push({ rootId, metrics });
+    const children = childrenMap.get(rootId) || [];
+    if (children.length > 0) {
+      multiNodeRoots.push(rootId);
+    } else {
+      singleNodeRoots.push(rootId);
     }
   }
+
+  const allPositions = new Map<string, PositionCoordinates>();
+  const visited = new Set<string>();
+
+  if (multiNodeRoots.length === 0) {
+    // Only standalone single nodes exist
+    const totalCount = singleNodeRoots.length;
+    const cols =
+      totalCount <= 3
+        ? totalCount
+        : totalCount === 4
+          ? 2
+          : totalCount <= 6
+            ? 3
+            : 4;
+
+    const colWidths: number[] = new Array<number>(cols).fill(0);
+    for (let i = 0; i < totalCount; i++) {
+      const colIndex = i % cols;
+      const w = getNodeWidth(nodeMap.get(singleNodeRoots[i]));
+      if (w > colWidths[colIndex]) {
+        colWidths[colIndex] = w;
+      }
+    }
+
+    const colStarts: number[] = [0];
+    for (let c = 1; c < cols; c++) {
+      colStarts.push(colStarts[c - 1] + colWidths[c - 1] + SIBLING_GAP);
+    }
+
+    const rowStep = NODE_TOTAL_HEIGHT + SIBLING_GAP;
+
+    for (let i = 0; i < totalCount; i++) {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const rootId = singleNodeRoots[i];
+      const w = getNodeWidth(nodeMap.get(rootId));
+      const startX = colStarts[col] + Math.round((colWidths[col] - w) / 2);
+      const startY = row * rowStep;
+      allPositions.set(rootId, { x: startX, y: startY });
+      visited.add(rootId);
+    }
+  } else {
+    // We have at least one connected multi-node tree
+    let currentX = 0;
+
+    for (const rootId of multiNodeRoots) {
+      if (!visited.has(rootId)) {
+        const tree = computeSubtree(rootId, nodeMap, childrenMap, visited);
+        for (const [id, pos] of tree.positions) {
+          allPositions.set(id, {
+            x: pos.x + currentX,
+            y: pos.y,
+          });
+        }
+        currentX += tree.width + SECTION_GAP;
+      }
+    }
+
+    if (singleNodeRoots.length > 0) {
+      const unplacedSingles = singleNodeRoots.filter((id) => !visited.has(id));
+      const totalSingles = unplacedSingles.length;
+
+      if (totalSingles > 0) {
+        const cols = totalSingles <= 2 ? totalSingles : totalSingles <= 4 ? 2 : 3;
+        const colWidths: number[] = new Array<number>(cols).fill(0);
+
+        for (let i = 0; i < totalSingles; i++) {
+          const colIndex = i % cols;
+          const w = getNodeWidth(nodeMap.get(unplacedSingles[i]));
+          if (w > colWidths[colIndex]) {
+            colWidths[colIndex] = w;
+          }
+        }
+
+        const colStarts: number[] = [currentX];
+        for (let c = 1; c < cols; c++) {
+          colStarts.push(colStarts[c - 1] + colWidths[c - 1] + SIBLING_GAP);
+        }
+
+        const rowStep = NODE_TOTAL_HEIGHT + SIBLING_GAP;
+
+        for (let i = 0; i < totalSingles; i++) {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const rootId = unplacedSingles[i];
+          const w = getNodeWidth(nodeMap.get(rootId));
+          const startX = colStarts[col] + Math.round((colWidths[col] - w) / 2);
+          const startY = row * rowStep;
+          allPositions.set(rootId, { x: startX, y: startY });
+          visited.add(rootId);
+        }
+      }
+    }
+  }
+
+  // Safety fallback for any unvisited nodes (e.g. cycles)
+  let fallbackX = 0;
+  for (const [, pos] of allPositions) {
+    if (pos.x > fallbackX) fallbackX = pos.x;
+  }
+  fallbackX += SECTION_GAP;
 
   for (const node of nodes) {
-    if (!metricsVisited.has(node.id)) {
-      const metrics = computeSubtreeMetrics(
-        node.id,
-        childrenMap,
-        metricsVisited,
-      );
-      treeMetrics.push({ rootId: node.id, metrics });
+    if (!allPositions.has(node.id)) {
+      allPositions.set(node.id, { x: fallbackX, y: 0 });
+      fallbackX += getNodeWidth(node) + SIBLING_GAP;
     }
   }
 
-  interface TreeRow {
-    trees: Array<{ rootId: string; metrics: SubtreeMetrics }>;
-    totalWidth: number;
-    maxHeight: number;
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+
+  for (const [id, pos] of allPositions) {
+    const node = nodeMap.get(id);
+    const w = getNodeWidth(node);
+    if (pos.x < minX) minX = pos.x;
+    if (pos.x + w > maxX) maxX = pos.x + w;
+    if (pos.y < minY) minY = pos.y;
+    if (pos.y + NODE_CARD_HEIGHT > maxY) maxY = pos.y + NODE_CARD_HEIGHT;
   }
 
-  const rows: TreeRow[] = [];
-  let currentRow: TreeRow = { trees: [], totalWidth: 0, maxHeight: 0 };
-
-  for (const item of treeMetrics) {
-    const projectedWidth =
-      currentRow.trees.length === 0
-        ? item.metrics.width
-        : currentRow.totalWidth + TREE_HORIZONTAL_GAP + item.metrics.width;
-
-    if (
-      currentRow.trees.length >= MAX_TREES_PER_ROW ||
-      (projectedWidth > MAX_ROW_WIDTH && currentRow.trees.length > 0)
-    ) {
-      rows.push(currentRow);
-      currentRow = {
-        trees: [item],
-        totalWidth: item.metrics.width,
-        maxHeight: item.metrics.height,
-      };
-    } else {
-      currentRow.trees.push(item);
-      currentRow.totalWidth = projectedWidth;
-      currentRow.maxHeight = Math.max(
-        currentRow.maxHeight,
-        item.metrics.height,
-      );
-    }
-  }
-
-  if (currentRow.trees.length > 0) {
-    rows.push(currentRow);
-  }
-
-  let totalGridHeight = 0;
-  for (let r = 0; r < rows.length; r++) {
-    totalGridHeight += rows[r].maxHeight;
-    if (r > 0) {
-      totalGridHeight += TREE_ROW_GAP;
-    }
-  }
-
-  const positions = new Map<string, PositionCoordinates>();
-  const layoutVisited = new Set<string>();
-
-  let currentY = -Math.round(totalGridHeight / 2);
-
-  for (const row of rows) {
-    let currentX = -Math.round(row.totalWidth / 2);
-
-    for (const tree of row.trees) {
-      layoutTree(
-        tree.rootId,
-        currentX,
-        currentY,
-        tree.metrics,
-        childrenMap,
-        positions,
-        layoutVisited,
-      );
-      currentX += tree.metrics.width + TREE_HORIZONTAL_GAP;
-    }
-
-    currentY += row.maxHeight + TREE_ROW_GAP;
-  }
+  const shiftX = Math.round((minX + maxX) / 2);
+  const shiftY = Math.round((minY + maxY) / 2);
 
   return nodes.map((node) => {
-    const pos = positions.get(node.id) ?? node.position;
+    const pos = allPositions.get(node.id) ?? node.position;
     return {
       ...node,
-      position: pos,
+      position: {
+        x: pos.x - shiftX,
+        y: pos.y - shiftY,
+      },
       draggable: false,
     };
   });
 }
+
