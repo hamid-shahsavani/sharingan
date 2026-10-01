@@ -49,37 +49,12 @@ export const MindMapEdge = (props: MindMapEdgeProps) => {
   const sourcePosition = props.sourcePosition ?? Position.Bottom;
   const targetPosition = props.targetPosition ?? Position.Top;
 
-  const isVertical =
-    (sourcePosition === Position.Bottom || sourcePosition === Position.Top) &&
-    (targetPosition === Position.Top || targetPosition === Position.Bottom);
-
-  const isHorizontal =
-    (sourcePosition === Position.Left || sourcePosition === Position.Right) &&
-    (targetPosition === Position.Right || targetPosition === Position.Left);
-
-  const STRAIGHT_EDGE_SNAP_THRESHOLD = 14;
-
-  let targetX = props.targetX;
-  let targetY = props.targetY;
-
-  if (
-    isVertical &&
-    Math.abs(props.sourceX - props.targetX) <= STRAIGHT_EDGE_SNAP_THRESHOLD
-  ) {
-    targetX = props.sourceX;
-  } else if (
-    isHorizontal &&
-    Math.abs(props.sourceY - props.targetY) <= STRAIGHT_EDGE_SNAP_THRESHOLD
-  ) {
-    targetY = props.sourceY;
-  }
-
   const [edgePath, labelX, labelY] = getSmoothStepPath({
     sourceX: props.sourceX,
     sourceY: props.sourceY,
     sourcePosition,
-    targetX,
-    targetY,
+    targetX: props.targetX,
+    targetY: props.targetY,
     targetPosition,
     borderRadius: 8,
   });
