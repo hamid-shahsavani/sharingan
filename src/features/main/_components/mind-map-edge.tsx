@@ -109,8 +109,9 @@ export const MindMapEdge = (props: MindMapEdgeProps) => {
             position: 'absolute',
             transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
             pointerEvents: isActionsOpen ? 'all' : 'none',
+            zIndex: 100005,
           }}
-          className="nodrag nopan z-100001"
+          className="nodrag nopan z-[100005]"
         >
           <TooltipProvider>
             <div

@@ -1,13 +1,24 @@
-type ToastListener = (message: string | null) => void;
+export type ToastType = 'success' | 'error';
 
-let currentMessage: string | null = null;
+export interface ToastItem {
+  message: string;
+  type: ToastType;
+}
+
+type ToastListener = (toast: ToastItem | null) => void;
+
+let currentToast: ToastItem | null = null;
 let toastTimeout: ReturnType<typeof setTimeout> | null = null;
 const listeners = new Set<ToastListener>();
 
-export function showToast(message: string, duration = 3000): void {
-  currentMessage = message;
+export function showToast(
+  message: string,
+  type: ToastType = 'success',
+  duration = 3000,
+): void {
+  currentToast = { message, type };
   listeners.forEach((listener) => {
-    listener(currentMessage);
+    listener(currentToast);
   });
 
   if (toastTimeout !== null) {
@@ -15,7 +26,7 @@ export function showToast(message: string, duration = 3000): void {
   }
 
   toastTimeout = setTimeout(() => {
-    currentMessage = null;
+    currentToast = null;
     listeners.forEach((listener) => {
       listener(null);
     });
@@ -25,7 +36,7 @@ export function showToast(message: string, duration = 3000): void {
 
 export function subscribeToast(listener: ToastListener): () => void {
   listeners.add(listener);
-  listener(currentMessage);
+  listener(currentToast);
   return () => {
     listeners.delete(listener);
   };

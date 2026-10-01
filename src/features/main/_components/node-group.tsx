@@ -147,7 +147,7 @@ export const NodeGroup = (props: NodeGroupProps) => {
             onMouseEnter={showActions}
             onMouseLeave={hideActions}
             className={cn(
-              'absolute bottom-[calc(100%+4px)] left-1/2 z-100001 flex -translate-x-1/2 items-center gap-0.5 rounded-lg border border-node-border bg-linear-to-br from-node-surface-from/95 to-node-surface-to/95 p-0.5 shadow-[0_8px_20px_var(--node-shadow)] backdrop-blur-sm transition-[opacity,transform] duration-200 ease-out',
+              'absolute bottom-[calc(100%+4px)] left-1/2 z-[100001] flex -translate-x-1/2 items-center gap-0.5 rounded-lg border border-node-border bg-linear-to-br from-node-surface-from/95 to-node-surface-to/95 p-0.5 shadow-[0_8px_20px_var(--node-shadow)] backdrop-blur-sm transition-[opacity,transform] duration-200 ease-out',
               isActionsOpen
                 ? 'pointer-events-auto translate-y-0 scale-100 opacity-100'
                 : 'pointer-events-none translate-y-1 scale-95 opacity-0',

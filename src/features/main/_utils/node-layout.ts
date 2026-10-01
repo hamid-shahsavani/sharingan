@@ -363,96 +363,27 @@ export function calculateStandardLayout(
   const allPositions = new Map<string, PositionCoordinates>();
   const visited = new Set<string>();
 
-  if (multiNodeRoots.length === 0) {
-    // Only standalone single nodes exist
-    const totalCount = singleNodeRoots.length;
-    const cols =
-      totalCount <= 3
-        ? totalCount
-        : totalCount === 4
-          ? 2
-          : totalCount <= 6
-            ? 3
-            : 4;
+  let currentX = 0;
 
-    const colWidths: number[] = new Array<number>(cols).fill(0);
-    for (let i = 0; i < totalCount; i++) {
-      const colIndex = i % cols;
-      const w = getNodeWidth(nodeMap.get(singleNodeRoots[i]));
-      if (w > colWidths[colIndex]) {
-        colWidths[colIndex] = w;
+  for (const rootId of multiNodeRoots) {
+    if (!visited.has(rootId)) {
+      const tree = computeSubtree(rootId, nodeMap, childrenMap, visited);
+      for (const [id, pos] of tree.positions) {
+        allPositions.set(id, {
+          x: pos.x + currentX,
+          y: pos.y,
+        });
       }
+      currentX += tree.width + SECTION_GAP;
     }
+  }
 
-    const colStarts: number[] = [0];
-    for (let c = 1; c < cols; c++) {
-      colStarts.push(colStarts[c - 1] + colWidths[c - 1] + SIBLING_GAP);
-    }
-
-    const rowStep = NODE_TOTAL_HEIGHT + SIBLING_GAP;
-
-    for (let i = 0; i < totalCount; i++) {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      const rootId = singleNodeRoots[i];
-      const w = getNodeWidth(nodeMap.get(rootId));
-      const startX = colStarts[col] + Math.round((colWidths[col] - w) / 2);
-      const startY = row * rowStep;
-      allPositions.set(rootId, { x: startX, y: startY });
-      visited.add(rootId);
-    }
-  } else {
-    // We have at least one connected multi-node tree
-    let currentX = 0;
-
-    for (const rootId of multiNodeRoots) {
-      if (!visited.has(rootId)) {
-        const tree = computeSubtree(rootId, nodeMap, childrenMap, visited);
-        for (const [id, pos] of tree.positions) {
-          allPositions.set(id, {
-            x: pos.x + currentX,
-            y: pos.y,
-          });
-        }
-        currentX += tree.width + SECTION_GAP;
-      }
-    }
-
-    if (singleNodeRoots.length > 0) {
-      const unplacedSingles = singleNodeRoots.filter((id) => !visited.has(id));
-      const totalSingles = unplacedSingles.length;
-
-      if (totalSingles > 0) {
-        const cols = totalSingles <= 2 ? totalSingles : totalSingles <= 4 ? 2 : 3;
-        const colWidths: number[] = new Array<number>(cols).fill(0);
-
-        for (let i = 0; i < totalSingles; i++) {
-          const colIndex = i % cols;
-          const w = getNodeWidth(nodeMap.get(unplacedSingles[i]));
-          if (w > colWidths[colIndex]) {
-            colWidths[colIndex] = w;
-          }
-        }
-
-        const colStarts: number[] = [currentX];
-        for (let c = 1; c < cols; c++) {
-          colStarts.push(colStarts[c - 1] + colWidths[c - 1] + SIBLING_GAP);
-        }
-
-        const rowStep = NODE_TOTAL_HEIGHT + SIBLING_GAP;
-
-        for (let i = 0; i < totalSingles; i++) {
-          const col = i % cols;
-          const row = Math.floor(i / cols);
-          const rootId = unplacedSingles[i];
-          const w = getNodeWidth(nodeMap.get(rootId));
-          const startX = colStarts[col] + Math.round((colWidths[col] - w) / 2);
-          const startY = row * rowStep;
-          allPositions.set(rootId, { x: startX, y: startY });
-          visited.add(rootId);
-        }
-      }
-    }
+  const unplacedSingles = singleNodeRoots.filter((id) => !visited.has(id));
+  for (const rootId of unplacedSingles) {
+    const w = getNodeWidth(nodeMap.get(rootId));
+    allPositions.set(rootId, { x: currentX, y: 0 });
+    currentX += w + SIBLING_GAP;
+    visited.add(rootId);
   }
 
   // Safety fallback for any unvisited nodes (e.g. cycles)

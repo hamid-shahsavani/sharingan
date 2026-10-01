@@ -81,14 +81,14 @@ export const MindMapApp = () => {
       const nextNodes = calculateStandardLayout(updatedNodes, graph.edges);
       graph.setNodes(nextNodes);
       await graph.saveDocument(nextNodes, graph.edges);
-      showToast('نود با موفقیت ویرایش شد');
+      showToast('نود با موفقیت ویرایش شد', 'success');
     } else {
       const rawNode = createGroupNode(values.title, { x: 0, y: 0 });
       const rawNodes = [...graph.nodes, rawNode];
       const nextNodes = calculateStandardLayout(rawNodes, graph.edges);
       graph.setNodes(nextNodes);
       await graph.saveDocument(nextNodes, graph.edges);
-      showToast('نود جدید با موفقیت افزوده شد');
+      showToast('نود جدید با موفقیت افزوده شد', 'success');
       void fitView({ padding: 0.25, duration: 400 });
     }
     setIsGroupModalOpen(false);
@@ -145,6 +145,7 @@ export const MindMapApp = () => {
       hasDescendants
         ? 'نود و فرزندان آن با موفقیت حذف شدند'
         : 'نود با موفقیت حذف شد',
+      'success',
     );
     void fitView({ padding: 0.25, duration: 400 });
   };
@@ -198,13 +199,24 @@ export const MindMapApp = () => {
     const nextNodes = calculateStandardLayout(rawNodes, nextEdges);
     graph.setNodes(nextNodes);
     await graph.saveDocument(nextNodes, nextEdges);
-    showToast('نود با موفقیت کپی شد');
+    showToast('نود با موفقیت کپی شد', 'success');
     void fitView({ padding: 0.25, duration: 400 });
   };
 
   const handleConnect = async (connection: Connection) => {
     if (!connection.source || !connection.target) return;
     if (connection.source === connection.target) return;
+
+    const isAlreadyConnected = graph.edges.some(
+      (edge) =>
+        (edge.source === connection.source && edge.target === connection.target) ||
+        (edge.source === connection.target && edge.target === connection.source),
+    );
+
+    if (isAlreadyConnected) {
+      showToast('این نود به این نود متصل هست', 'error');
+      return;
+    }
 
     const isParentChild = isParentChildEdge({
       sourceHandle: connection.sourceHandle,
@@ -219,7 +231,7 @@ export const MindMapApp = () => {
         graph.edges.filter(isParentChildEdge),
       )
     ) {
-      showToast('ایجاد رابطه چرخه‌ای در ساختار درختی امکان‌پذیر نیست');
+      showToast('ایجاد رابطه چرخه‌ای در ساختار درختی امکان‌پذیر نیست', 'error');
       return;
     }
 
@@ -237,7 +249,7 @@ export const MindMapApp = () => {
     graph.setNodes(nextNodes);
     graph.setEdges(nextEdges);
     await graph.saveDocument(nextNodes, nextEdges);
-    showToast('ارتباط بین نودها با موفقیت برقرار شد');
+    showToast('ارتباط بین نودها با موفقیت برقرار شد', 'success');
     void fitView({ padding: 0.25, duration: 400 });
   };
 
@@ -256,7 +268,7 @@ export const MindMapApp = () => {
     graph.setNodes(nextNodes);
     graph.setEdges(nextEdges);
     await graph.saveDocument(nextNodes, nextEdges);
-    showToast('ارتباط با موفقیت حذف شد');
+    showToast('ارتباط با موفقیت حذف شد', 'success');
     void fitView({ padding: 0.25, duration: 400 });
   };
 
