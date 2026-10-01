@@ -18,6 +18,7 @@ import {
   NodeGroupModal,
 } from '@/features/main/_components/node-group-modal';
 import {
+  cloneSubtree,
   createGroupNode,
   updateNodeTitle,
 } from '@/features/main/_utils/node-group';
@@ -201,32 +202,23 @@ export const MindMapApp = () => {
   };
 
   const handleCloneNode = async (nodeId: string) => {
-    const sourceNode = graph.getNodeById(nodeId);
-    if (!sourceNode) return;
-    const title =
-      (sourceNode.data as NodeGroupCustomData)?.title || 'گروه جدید';
-    const rawNode = createGroupNode(title, { x: 0, y: 0 });
+    const cloneResult = cloneSubtree(nodeId, graph.nodes, graph.edges);
+    if (!cloneResult) return;
 
-    const parentEdge = graph.edges.find((edge) => edge.target === nodeId);
-    let nextEdges = graph.edges;
-    if (parentEdge) {
-      const newEdge: Edge = {
-        id: `edge-${parentEdge.source}-${rawNode.id}`,
-        source: parentEdge.source,
-        target: rawNode.id,
-        sourceHandle: 'parent-source',
-        targetHandle: 'parent-target',
-        type: 'smoothstep',
-      };
-      nextEdges = [...graph.edges, newEdge];
-      graph.setEdges(nextEdges);
-    }
+    const nextNodesRaw = [...graph.nodes, ...cloneResult.clonedNodes];
+    const nextEdges = [...graph.edges, ...cloneResult.createdEdges];
+    const nextNodes = calculateStandardLayout(nextNodesRaw, nextEdges);
 
-    const rawNodes = [...graph.nodes, rawNode];
-    const nextNodes = calculateStandardLayout(rawNodes, nextEdges);
     graph.setNodes(nextNodes);
+    graph.setEdges(nextEdges);
     await graph.saveDocument(nextNodes, nextEdges);
-    showToast('نود با موفقیت کپی شد', 'success');
+
+    showToast(
+      cloneResult.isSubtreeWithDescendants
+        ? 'نود و فرزندان آن با موفقیت کپی شدند'
+        : 'نود با موفقیت کپی شد',
+      'success',
+    );
     void fitView({ padding: 0.25, duration: 400 });
   };
 
