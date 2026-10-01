@@ -1,5 +1,4 @@
 import {
-  Handle,
   type Node,
   type NodeProps,
   Position,
@@ -23,6 +22,7 @@ import {
 } from 'react';
 
 import { NodeActionButton } from '@/features/main/_components/node-action-button';
+import { NodeHandle } from '@/features/main/_components/node-handle';
 import { type NodeVisualBounds } from '@/features/main/_types/flow';
 import { TooltipProvider } from '@/features/shared/_uis/tooltip';
 
@@ -45,8 +45,7 @@ export interface NodeGroupData extends Record<string, unknown> {
 export type NodeGroupProps = NodeProps<Node<NodeGroupData, 'group'>>;
 
 
-const HANDLE_BASE_CLASS =
-  'pointer-events-auto! size-3! border-2! border-surface-panel! bg-node-handle! opacity-0 transition-opacity group-hover/node-card:opacity-100';
+
 
 export const NodeGroup = (props: NodeGroupProps) => {
   const [isActionsOpen, setIsActionsOpen] = useState(false);
@@ -197,33 +196,33 @@ export const NodeGroup = (props: NodeGroupProps) => {
             {props.data.title}
           </div>
         </div>
-        <Handle
+        <NodeHandle
           id="parent-target"
-          type="target"
+          nodeId={props.id}
+          type="source"
           position={Position.Top}
           isConnectable={props.isConnectable}
-          className={HANDLE_BASE_CLASS}
         />
-        <Handle
+        <NodeHandle
           id="relation-target"
-          type="target"
+          nodeId={props.id}
+          type="source"
           position={Position.Left}
           isConnectable={props.isConnectable}
-          className={HANDLE_BASE_CLASS}
         />
-        <Handle
+        <NodeHandle
           id="parent-source"
+          nodeId={props.id}
           type="source"
           position={Position.Bottom}
           isConnectable={props.isConnectable}
-          className={HANDLE_BASE_CLASS}
         />
-        <Handle
+        <NodeHandle
           id="relation-source"
+          nodeId={props.id}
           type="source"
           position={Position.Right}
           isConnectable={props.isConnectable}
-          className={HANDLE_BASE_CLASS}
         />
       </div>
     </div>

@@ -257,3 +257,19 @@
 .react-flow__node:hover {
   z-index: 100001 !important;
 }
+
+.react-flow__connection-path {
+  stroke: var(--accent-purple);
+  stroke-width: 2px;
+  stroke-dasharray: 6 4;
+  animation: connection-line-flow 0.8s linear infinite;
+}
+
+@keyframes connection-line-flow {
+  from {
+    stroke-dashoffset: 10;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}

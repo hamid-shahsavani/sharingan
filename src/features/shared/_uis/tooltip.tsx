@@ -66,7 +66,7 @@ export const TooltipContent = (props: TooltipContentProps) => {
           dir="rtl"
           data-slot="tooltip-content"
           className={cn(
-            'z-3000 w-max max-w-[200px] rounded-md border border-surface-panel-border bg-surface-panel px-2 py-1 text-center font-sans text-xs font-light text-foreground shadow-md outline-none transition-[opacity,transform] duration-150 data-starting-style:opacity-0 data-starting-style:scale-95 data-ending-style:opacity-0 data-ending-style:scale-95',
+            'z-3000 w-max max-w-[200px] rounded-md border border-surface-panel-border bg-surface-panel px-2 py-0.5 text-center font-sans text-[11px] font-normal leading-normal text-foreground shadow-md outline-none transition-[opacity,transform] duration-150 data-starting-style:opacity-0 data-starting-style:scale-95 data-ending-style:opacity-0 data-ending-style:scale-95',
             props.className,
           )}
           style={{

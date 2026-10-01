@@ -2,6 +2,8 @@ import {
   Background,
   BackgroundVariant,
   type Connection,
+  ConnectionLineType,
+  ConnectionMode,
   type Edge,
   type EdgeTypes,
   type Node,
@@ -25,6 +27,7 @@ import { MindMapEdge } from '@/features/main/_components/mind-map-edge';
 import { NodeGroup } from '@/features/main/_components/node-group';
 import { ParentSectionNode } from '@/features/main/_components/parent-section-node';
 import { type NodeVisualBounds } from '@/features/main/_types/flow';
+import { isParentChildEdge } from '@/features/main/_utils/node-layout';
 import { calculateParentSections } from '@/features/main/_utils/parent-section';
 
 export interface MindMapCanvasProps {
@@ -165,7 +168,9 @@ export const Canvas = (props: MindMapCanvasProps) => {
   const nodesWithHandlers = useMemo(() => {
     return props.nodes.map((node) => {
       if (node.type === 'group') {
-        const hasChildren = props.edges.some((edge) => edge.source === node.id);
+        const hasChildren = props.edges.some(
+          (edge) => isParentChildEdge(edge) && edge.source === node.id,
+        );
         return {
           ...node,
           draggable: false,
@@ -236,6 +241,12 @@ export const Canvas = (props: MindMapCanvasProps) => {
         onNodesChange={props.onNodesChange}
         onEdgesChange={props.onEdgesChange}
         onConnect={props.onConnect}
+        connectionMode={ConnectionMode.Loose}
+        connectionLineType={ConnectionLineType.SmoothStep}
+        connectionLineStyle={{
+          stroke: 'var(--accent-purple)',
+          strokeWidth: 2,
+        }}
         onNodeMouseEnter={(_event, node) => {
           if (node.type !== 'parent-section') {
             handleNodeHover(node.id);

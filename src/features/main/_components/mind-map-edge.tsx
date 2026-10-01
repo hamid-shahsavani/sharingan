@@ -39,7 +39,7 @@ export const MindMapEdge = (props: MindMapEdgeProps) => {
   const hideActions = useCallback(() => {
     actionsTimeoutRef.current = setTimeout(() => {
       setIsActionsOpen(false);
-    }, 300);
+    }, 700);
   }, []);
 
   useEffect(() => {
@@ -93,41 +93,38 @@ export const MindMapEdge = (props: MindMapEdgeProps) => {
         d={edgePath}
         fill="none"
         stroke="transparent"
-        strokeWidth={28}
+        strokeWidth={36}
         className="cursor-pointer"
         style={{ pointerEvents: 'stroke' }}
         onMouseEnter={showActions}
+        onMouseMove={showActions}
         onMouseLeave={hideActions}
       />
       <EdgeLabelRenderer>
         <div
           onMouseEnter={showActions}
+          onMouseMove={showActions}
           onMouseLeave={hideActions}
           style={{
             position: 'absolute',
             transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+            pointerEvents: isActionsOpen ? 'all' : 'none',
           }}
-          className={cn(
-            'nodrag nopan z-100001',
-            isActionsOpen ? 'pointer-events-auto' : 'pointer-events-none',
-          )}
+          className="nodrag nopan z-100001"
         >
           <TooltipProvider>
             <div
               className={cn(
-                'relative flex items-center gap-0.5 rounded-lg border border-node-border bg-linear-to-br from-node-surface-from/95 to-node-surface-to/95 p-0.5 shadow-[0_8px_20px_var(--node-shadow)] backdrop-blur-sm transition-[opacity,transform] duration-200 ease-out',
+                'relative flex items-center justify-center rounded-lg border border-node-border bg-linear-to-br from-node-surface-from/95 to-node-surface-to/95 p-0.5 shadow-[0_8px_20px_var(--node-shadow)] backdrop-blur-sm transition-[opacity,transform] duration-200 ease-out',
                 isActionsOpen
                   ? 'scale-100 opacity-100'
                   : 'scale-95 opacity-0',
               )}
             >
-              <span
-                aria-hidden="true"
-                className="pointer-events-auto absolute -inset-3"
-              />
               <NodeActionButton
                 label="حذف"
                 onClick={handleDelete}
+                className="hover:text-node-icon-foreground"
               >
                 <Trash2 className="size-2.5" strokeWidth={1.8} />
               </NodeActionButton>

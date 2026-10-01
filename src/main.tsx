@@ -4,6 +4,7 @@ import {
   addEdge,
   type Connection,
   type Edge,
+  type OnNodesChange,
   ReactFlowProvider,
   useReactFlow,
 } from '@xyflow/react';
@@ -22,6 +23,8 @@ import {
 } from '@/features/main/_utils/node-group';
 import {
   calculateStandardLayout,
+  getDescendantNodeIds,
+  isParentChildEdge,
   wouldCreateCycle,
 } from '@/features/main/_utils/node-layout';
 import { AppToast } from '@/features/shared/_components/app-toast';
@@ -102,17 +105,73 @@ export const MindMapApp = () => {
     setIsGroupModalOpen(true);
   };
 
-  const handleDeleteNode = async (nodeId: string) => {
-    const remainingNodes = graph.nodes.filter((node) => node.id !== nodeId);
-    const remainingEdges = graph.edges.filter(
-      (edge) => edge.source !== nodeId && edge.target !== nodeId,
+  const handleDeleteNodes = async (
+    targetNodeIds: string[],
+  ): Promise<void> => {
+    if (targetNodeIds.length === 0) return;
+
+    const toDeleteIds = new Set<string>();
+    for (const id of targetNodeIds) {
+      toDeleteIds.add(id);
+      const descendantIds = getDescendantNodeIds(
+        id,
+        graph.nodes,
+        graph.edges,
+      );
+      for (const descId of descendantIds) {
+        toDeleteIds.add(descId);
+      }
+    }
+
+    if (editingNodeId && toDeleteIds.has(editingNodeId)) {
+      setEditingNodeId(null);
+      setIsGroupModalOpen(false);
+    }
+
+    const remainingNodes = graph.nodes.filter(
+      (node) => !toDeleteIds.has(node.id),
     );
+    const remainingEdges = graph.edges.filter(
+      (edge) => !toDeleteIds.has(edge.source) && !toDeleteIds.has(edge.target),
+    );
+
     const nextNodes = calculateStandardLayout(remainingNodes, remainingEdges);
     graph.setNodes(nextNodes);
     graph.setEdges(remainingEdges);
     await graph.saveDocument(nextNodes, remainingEdges);
-    showToast('نود با موفقیت حذف شد');
+
+    const hasDescendants = toDeleteIds.size > targetNodeIds.length;
+    showToast(
+      hasDescendants
+        ? 'نود و فرزندان آن با موفقیت حذف شدند'
+        : 'نود با موفقیت حذف شد',
+    );
     void fitView({ padding: 0.25, duration: 400 });
+  };
+
+  const handleDeleteNode = async (nodeId: string): Promise<void> => {
+    await handleDeleteNodes([nodeId]);
+  };
+
+  const handleNodesChange: OnNodesChange = (changes) => {
+    const removeChanges = changes.filter((change) => change.type === 'remove');
+    const otherChanges = changes.filter((change) => change.type !== 'remove');
+
+    if (otherChanges.length > 0) {
+      graph.onNodesChange(otherChanges);
+    }
+
+    if (removeChanges.length > 0) {
+      const idsToDelete = removeChanges
+        .map((change) =>
+          'id' in change && typeof change.id === 'string' ? change.id : null,
+        )
+        .filter((id): id is string => Boolean(id));
+
+      if (idsToDelete.length > 0) {
+        void handleDeleteNodes(idsToDelete);
+      }
+    }
   };
 
   const handleCloneNode = async (nodeId: string) => {
@@ -147,13 +206,25 @@ export const MindMapApp = () => {
     if (!connection.source || !connection.target) return;
     if (connection.source === connection.target) return;
 
-    if (wouldCreateCycle(connection.source, connection.target, graph.edges)) {
-      showToast('ایجاد رابطه چرخه‌ای امکان‌پذیر نیست');
+    const isParentChild = isParentChildEdge({
+      sourceHandle: connection.sourceHandle,
+      targetHandle: connection.targetHandle,
+    });
+
+    if (
+      isParentChild &&
+      wouldCreateCycle(
+        connection.source,
+        connection.target,
+        graph.edges.filter(isParentChildEdge),
+      )
+    ) {
+      showToast('ایجاد رابطه چرخه‌ای در ساختار درختی امکان‌پذیر نیست');
       return;
     }
 
     const newEdge: Edge = {
-      id: `edge-${connection.source}-${connection.target}`,
+      id: `edge-${connection.source}-${connection.sourceHandle ?? 'default'}-${connection.target}-${connection.targetHandle ?? 'default'}`,
       source: connection.source,
       target: connection.target,
       sourceHandle: connection.sourceHandle,
@@ -199,7 +270,7 @@ export const MindMapApp = () => {
       <Canvas
         nodes={graph.nodes}
         edges={graph.edges}
-        onNodesChange={graph.onNodesChange}
+        onNodesChange={handleNodesChange}
         onEdgesChange={graph.onEdgesChange}
         onConnect={(connection) => {
           void handleConnect(connection);

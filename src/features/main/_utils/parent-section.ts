@@ -6,6 +6,7 @@ import {
 } from '@/features/main/_types/flow';
 import {
   getNodeWidth,
+  isParentChildEdge,
   NODE_CARD_HEIGHT,
   NODE_ICON_HEIGHT,
 } from '@/features/main/_utils/node-layout';
@@ -24,12 +25,7 @@ export const calculateParentSections = (
 
   const childrenByParent = new Map<string, string[]>();
   for (const edge of edges) {
-    if (
-      edge.sourceHandle &&
-      edge.sourceHandle !== 'parent-source' &&
-      edge.targetHandle &&
-      edge.targetHandle !== 'parent-target'
-    ) {
+    if (!isParentChildEdge(edge)) {
       continue;
     }
     const children = childrenByParent.get(edge.source) ?? [];

@@ -49,7 +49,15 @@ export const NodeActionButton = (props: NodeActionButtonProps) => {
           </Button>
         }
       />
-      <TooltipContent side="top" zoom={zoom} className={props.tooltipClassName}>
+      <TooltipContent
+        side="top"
+        sideOffset={4}
+        zoom={zoom}
+        className={cn(
+          'text-[8px] font-normal px-1.5 py-0.5 rounded-md leading-normal shadow-xs',
+          props.tooltipClassName,
+        )}
+      >
         {props.label}
       </TooltipContent>
     </Tooltip>

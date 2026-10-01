@@ -29,6 +29,7 @@ export async function saveGraphDocument(
   const treeData = flowToTree(nodes, edges);
   await dbService.documents.save(documentId, {
     data: treeData,
+    edges,
   });
 }
 
@@ -45,5 +46,13 @@ export async function loadOrCreateGraphDocument(
     });
   }
 
-  return treeToFlow(documentRecord.data ?? []);
+  const flow = treeToFlow(documentRecord.data ?? []);
+  if (documentRecord.edges && documentRecord.edges.length > 0) {
+    return {
+      nodes: flow.nodes,
+      edges: documentRecord.edges,
+    };
+  }
+
+  return flow;
 }

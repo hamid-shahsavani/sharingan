@@ -17,6 +17,7 @@ export interface DocumentRecord {
   id: string;
   title: string;
   data: MindMapNode[];
+  edges?: Edge[];
 }
 
 export class SharinganDatabase extends Dexie {
@@ -93,7 +94,15 @@ export const flowToTree = (
     }
   }
   for (const edge of edges) {
-    if (edge.source && edge.target && !parentMap.has(edge.target)) {
+    const isRelation =
+      edge.sourceHandle?.startsWith('relation-') ||
+      edge.targetHandle?.startsWith('relation-') ||
+      (edge.sourceHandle &&
+        edge.sourceHandle !== 'parent-source' &&
+        edge.targetHandle &&
+        edge.targetHandle !== 'parent-target');
+
+    if (!isRelation && edge.source && edge.target && !parentMap.has(edge.target)) {
       parentMap.set(edge.target, edge.source);
     }
   }

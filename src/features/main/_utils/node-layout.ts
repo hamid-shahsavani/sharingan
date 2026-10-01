@@ -8,10 +8,10 @@ export interface PositionCoordinates {
 export const NODE_CARD_HEIGHT = 32;
 export const NODE_ICON_HEIGHT = 36;
 export const NODE_TOTAL_HEIGHT = NODE_CARD_HEIGHT + NODE_ICON_HEIGHT;
-export const LEVEL_Y_STEP = 110;
-export const SIBLING_GAP = 40;
-export const SECTION_GAP = 64;
-export const STANDARD_GAP = SIBLING_GAP;
+export const STANDARD_GAP = 40;
+export const SIBLING_GAP = STANDARD_GAP;
+export const SECTION_GAP = STANDARD_GAP;
+export const LEVEL_Y_STEP = NODE_TOTAL_HEIGHT + STANDARD_GAP;
 
 let textMeasureCanvas: HTMLCanvasElement | null = null;
 
@@ -233,6 +233,69 @@ export function wouldCreateCycle(
   return false;
 }
 
+export function isParentChildEdge(edge: {
+  sourceHandle?: string | null;
+  targetHandle?: string | null;
+}): boolean {
+  if (
+    edge.sourceHandle?.startsWith('relation-') ||
+    edge.targetHandle?.startsWith('relation-')
+  ) {
+    return false;
+  }
+
+  if (
+    edge.sourceHandle &&
+    edge.sourceHandle !== 'parent-source' &&
+    edge.targetHandle &&
+    edge.targetHandle !== 'parent-target'
+  ) {
+    return false;
+  }
+  return true;
+}
+
+export function getDescendantNodeIds(
+  rootNodeId: string,
+  nodes: readonly Node[],
+  edges: readonly Edge[],
+): Set<string> {
+  const childrenMap = new Map<string, string[]>();
+
+  for (const node of nodes) {
+    if (node.parentId) {
+      const list = childrenMap.get(node.parentId) ?? [];
+      list.push(node.id);
+      childrenMap.set(node.parentId, list);
+    }
+  }
+
+  for (const edge of edges) {
+    if (!isParentChildEdge(edge)) {
+      continue;
+    }
+
+    const list = childrenMap.get(edge.source) ?? [];
+    list.push(edge.target);
+    childrenMap.set(edge.source, list);
+  }
+
+  const descendantIds = new Set<string>();
+  const queue: string[] = [...(childrenMap.get(rootNodeId) ?? [])];
+
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    if (!currentId || descendantIds.has(currentId)) continue;
+    descendantIds.add(currentId);
+    const children = childrenMap.get(currentId);
+    if (children) {
+      queue.push(...children);
+    }
+  }
+
+  return descendantIds;
+}
+
 export function calculateStandardLayout(
   nodes: readonly Node[],
   edges: readonly Edge[],
@@ -261,12 +324,7 @@ export function calculateStandardLayout(
   };
 
   for (const edge of edges) {
-    if (
-      edge.sourceHandle &&
-      edge.sourceHandle !== 'parent-source' &&
-      edge.targetHandle &&
-      edge.targetHandle !== 'parent-target'
-    ) {
+    if (!isParentChildEdge(edge)) {
       continue;
     }
 
