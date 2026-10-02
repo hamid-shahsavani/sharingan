@@ -180,7 +180,7 @@ export const RelationEdge = (props: RelationEdgeProps) => {
               )}
             >
               <NodeActionButton
-                label="حذف ارتباط"
+                label="حذف"
                 onClick={handleDelete}
                 className="hover:text-node-icon-foreground"
               >

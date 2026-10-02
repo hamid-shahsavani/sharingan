@@ -3,6 +3,7 @@ import {
   type NodeProps,
   Position,
   useReactFlow,
+  useUpdateNodeInternals,
 } from '@xyflow/react';
 import { cn } from 'cn';
 import {
@@ -18,7 +19,6 @@ import {
 } from 'lucide-react';
 import {
   type FocusEvent,
-  type KeyboardEvent,
   type MouseEvent,
   useCallback,
   useEffect,
@@ -65,6 +65,12 @@ export const NodeGroup = (props: NodeGroupProps) => {
   const isActionsVisible = isActionsOpen && !isConnecting && !isRelating;
   const nodeRootRef = useRef<HTMLDivElement>(null);
   const { getViewport } = useReactFlow();
+  const updateNodeInternals = useUpdateNodeInternals();
+
+  useEffect(() => {
+    updateNodeInternals(props.id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const nodeElement =
@@ -184,6 +190,8 @@ export const NodeGroup = (props: NodeGroupProps) => {
           data-node-visual-part
           className="group/node-icon absolute -top-9 left-1/2 -ml-3.5 size-7"
         >
+          <NodeHandle id="parent-target" nodeId={props.id} type="target" position={Position.Top} />
+          <NodeHandle id="parent-source" nodeId={props.id} type="source" position={Position.Bottom} />
           <span
             aria-label="آیکون گروه"
             role="button"
@@ -268,18 +276,6 @@ export const NodeGroup = (props: NodeGroupProps) => {
             {props.data.title}
           </div>
         </div>
-        <NodeHandle
-          id="parent-target"
-          nodeId={props.id}
-          type="target"
-          position={Position.Top}
-        />
-        <NodeHandle
-          id="parent-source"
-          nodeId={props.id}
-          type="source"
-          position={Position.Bottom}
-        />
       </div>
 
       {hasChildren && isCollapsed && (

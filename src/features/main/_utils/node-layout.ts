@@ -73,9 +73,14 @@ export function wouldCreateCycle(
 }
 
 export function isParentChildEdge(edge: {
+  type?: string;
   sourceHandle?: string | null;
   targetHandle?: string | null;
 }): boolean {
+  if (edge.type === 'relation') {
+    return false;
+  }
+
   if (
     edge.sourceHandle?.startsWith('relation-') ||
     edge.targetHandle?.startsWith('relation-')
