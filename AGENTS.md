@@ -9,3 +9,4 @@ Rules index ([`.antigravity/rules/`](file:///c:/Users/hamid/Documents/projects/s
 | **03** | **Coding Standards & Syntax**       | [coding-standards.md](file:///c:/Users/hamid/Documents/projects/sharingan/.antigravity/rules/coding-standards.md)               |
 | **04** | **UI, Containers & Forms**          | [ui-containers-and-forms.md](file:///c:/Users/hamid/Documents/projects/sharingan/.antigravity/rules/ui-containers-and-forms.md) |
 | **05** | **State Management & Persistence**  | [state-and-persistence.md](file:///c:/Users/hamid/Documents/projects/sharingan/.antigravity/rules/state-and-persistence.md)     |
+| **06** | **Communication Style**             | [communication-style.md](file:///c:/Users/hamid/Documents/projects/sharingan/.antigravity/rules/communication-style.md)         |

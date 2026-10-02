@@ -20,13 +20,13 @@ import {
 import { NodeActionButton } from '@/features/main/_components/node-action-button';
 import { TooltipProvider } from '@/features/shared/_uis/tooltip';
 
-export interface MindMapEdgeData extends Record<string, unknown> {
+export interface RelationEdgeData extends Record<string, unknown> {
   onDelete?: (id: string) => void;
 }
 
-export type MindMapEdgeProps = EdgeProps<Edge<MindMapEdgeData>>;
+export type RelationEdgeProps = EdgeProps<Edge<RelationEdgeData>>;
 
-export const MindMapEdge = (props: MindMapEdgeProps) => {
+export const RelationEdge = (props: RelationEdgeProps) => {
   const [isActionsOpen, setIsActionsOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const labelRef = useRef<HTMLDivElement>(null);
@@ -55,7 +55,7 @@ export const MindMapEdge = (props: MindMapEdgeProps) => {
     targetX: props.targetX,
     targetY: props.targetY,
     targetPosition,
-    borderRadius: 8,
+    borderRadius: 12,
   });
 
   const handleDelete = useCallback(() => {
@@ -67,12 +67,25 @@ export const MindMapEdge = (props: MindMapEdgeProps) => {
     setIsActionsOpen((prev) => !prev);
   }, []);
 
+  const isPreview = props.id.startsWith('__preview');
+
   const edgeStyle = useMemo<CSSProperties>(() => {
+    if (isPreview) {
+      return {
+        stroke: 'var(--accent-purple)',
+        strokeWidth: 1.5,
+        strokeDasharray: '6 4',
+        opacity: 0.7,
+        pointerEvents: 'none',
+        ...props.style,
+      };
+    }
     if (isActionsOpen) {
       return {
         ...props.style,
         stroke: 'var(--accent-purple)',
         strokeWidth: 2,
+        strokeDasharray: '6 4',
       };
     }
     if (isHovered) {
@@ -80,57 +93,72 @@ export const MindMapEdge = (props: MindMapEdgeProps) => {
         ...props.style,
         stroke: 'var(--node-border-hover, #6b7280)',
         strokeWidth: 2,
+        strokeDasharray: '6 4',
       };
     }
     return {
-      stroke: 'var(--node-border, #4b5563)',
+      stroke: 'var(--accent-purple-muted)',
       strokeWidth: 1.5,
+      strokeDasharray: '6 4',
       ...props.style,
     };
-  }, [isActionsOpen, isHovered, props.style]);
+  }, [isActionsOpen, isHovered, isPreview, props.style]);
 
-  if (props.id.startsWith('__preview')) {
+  if (isPreview) {
     return (
       <path
         id={props.id}
         d={edgePath}
         fill="none"
-        style={{
-          stroke: 'var(--accent-purple)',
-          strokeWidth: 1.5,
-          pointerEvents: 'none',
-          ...props.style,
-        }}
-        className="react-flow__edge-path pointer-events-none transition-all duration-150"
+        style={edgeStyle}
+        className="react-flow__edge-path pointer-events-none"
       />
     );
   }
 
   return (
     <>
+      {/* Defs for animated dash */}
+      <defs>
+        <style>{`
+          @keyframes relation-dash-${props.id.replace(/[^a-zA-Z0-9]/g, '_')} {
+            to { stroke-dashoffset: -20; }
+          }
+        `}</style>
+      </defs>
+
+      {/* Animated dashed path */}
       <path
         id={props.id}
         d={edgePath}
         fill="none"
-        style={edgeStyle}
+        style={{
+          ...edgeStyle,
+          strokeDasharray: isActionsOpen ? '6 3' : '6 4',
+          strokeDashoffset: 0,
+          animation: `relation-dash-${props.id.replace(/[^a-zA-Z0-9]/g, '_')} ${isActionsOpen ? '0.4s' : '0.6s'} linear infinite`,
+        }}
         markerEnd={props.markerEnd}
         markerStart={props.markerStart}
         className={cn(
           'react-flow__edge-path transition-[stroke,stroke-width] duration-200',
-          isActionsOpen && 'stroke-accent-purple! stroke-[2px]!',
+          isActionsOpen && 'stroke-accent-purple!',
         )}
       />
+
+      {/* Invisible wide hit area */}
       <path
         d={edgePath}
         fill="none"
         stroke="transparent"
-        strokeWidth={12}
+        strokeWidth={14}
         className="cursor-pointer"
         style={{ pointerEvents: 'stroke' }}
         onClick={handleLineClick}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       />
+
       <EdgeLabelRenderer>
         <div
           ref={labelRef}
@@ -152,7 +180,7 @@ export const MindMapEdge = (props: MindMapEdgeProps) => {
               )}
             >
               <NodeActionButton
-                label="حذف"
+                label="حذف ارتباط"
                 onClick={handleDelete}
                 className="hover:text-node-icon-foreground"
               >
@@ -165,4 +193,3 @@ export const MindMapEdge = (props: MindMapEdgeProps) => {
     </>
   );
 };
-

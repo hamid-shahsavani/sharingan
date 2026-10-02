@@ -7,7 +7,9 @@ import {
 import { cn } from 'cn';
 import {
   ChevronsDown,
+  CornerDownRight,
   Copy,
+  GitMerge,
   Layers3,
   Link,
   MoreHorizontal,
@@ -42,8 +44,11 @@ export interface NodeGroupData extends Record<string, unknown> {
   onCollapse?: (id: string) => void;
   onExpand?: (id: string) => void;
   onConnectStart?: (id: string) => void;
+  onRelationStart?: (id: string) => void;
   onSelectAsConnectTarget?: (id: string) => void;
+  onSelectAsRelationTarget?: (id: string) => void;
   isConnecting?: boolean;
+  isRelating?: boolean;
   isConnectingSource?: boolean;
   hasChildren?: boolean;
   isCollapsed?: boolean;
@@ -55,25 +60,11 @@ export type NodeGroupProps = NodeProps<Node<NodeGroupData, 'group'>>;
 
 export const NodeGroup = (props: NodeGroupProps) => {
   const isConnecting = Boolean(props.data.isConnecting);
+  const isRelating = Boolean(props.data.isRelating);
   const [isActionsOpen, setIsActionsOpen] = useState(false);
-  const isActionsVisible = isActionsOpen && !isConnecting;
-  const actionsTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
+  const isActionsVisible = isActionsOpen && !isConnecting && !isRelating;
   const nodeRootRef = useRef<HTMLDivElement>(null);
   const { getViewport } = useReactFlow();
-
-  const showActions = useCallback(() => {
-    if (props.data.isConnecting) return;
-    clearTimeout(actionsTimeoutRef.current);
-    setIsActionsOpen(true);
-  }, [props.data.isConnecting]);
-
-  const hideActions = useCallback(() => {
-    actionsTimeoutRef.current = setTimeout(() => {
-      setIsActionsOpen(false);
-    }, 400);
-  }, []);
 
   useEffect(() => {
     const nodeElement =
@@ -87,8 +78,18 @@ export const NodeGroup = (props: NodeGroupProps) => {
   }, [isActionsVisible]);
 
   useEffect(() => {
-    return () => clearTimeout(actionsTimeoutRef.current);
-  }, []);
+    if (!isActionsVisible) return;
+    const handleOutsideClick = (event: globalThis.MouseEvent) => {
+      if (
+        nodeRootRef.current &&
+        !nodeRootRef.current.contains(event.target as globalThis.Node)
+      ) {
+        setIsActionsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [isActionsVisible]);
 
   useLayoutEffect(() => {
     const root = nodeRootRef.current;
@@ -131,6 +132,9 @@ export const NodeGroup = (props: NodeGroupProps) => {
     if (props.data.isConnecting) {
       event.stopPropagation();
       props.data.onSelectAsConnectTarget?.(props.id);
+    } else if (props.data.isRelating) {
+      event.stopPropagation();
+      props.data.onSelectAsRelationTarget?.(props.id);
     }
   };
 
@@ -140,32 +144,50 @@ export const NodeGroup = (props: NodeGroupProps) => {
         event.preventDefault();
         event.stopPropagation();
         props.data.onSelectAsConnectTarget?.(props.id);
+      } else if (props.data.isRelating) {
+        event.preventDefault();
+        event.stopPropagation();
+        props.data.onSelectAsRelationTarget?.(props.id);
       }
     }
   };
 
   const handleMouseEnter = useCallback(() => {
     props.data.onHover?.(props.id);
-    showActions();
-  }, [props.data, props.id, showActions]);
+  }, [props.data, props.id]);
 
   const handleMouseLeave = useCallback(() => {
     props.data.onHover?.(null);
-    hideActions();
-  }, [props.data, hideActions]);
+  }, [props.data]);
 
-  const handleFocus = useCallback(() => {
-    showActions();
-  }, [showActions]);
+  const handleIconClick = useCallback(
+    (event: MouseEvent<HTMLSpanElement>) => {
+      event.stopPropagation();
+      if (props.data.isConnecting) {
+        props.data.onSelectAsConnectTarget?.(props.id);
+        return;
+      }
+      if (props.data.isRelating) {
+        props.data.onSelectAsRelationTarget?.(props.id);
+        return;
+      }
+      setIsActionsOpen((prev) => !prev);
+    },
+    [props.data, props.id],
+  );
 
   const handleBlur = useCallback(
     (event: FocusEvent<HTMLDivElement>) => {
       if (!event.currentTarget.contains(event.relatedTarget)) {
-        hideActions();
+        setIsActionsOpen(false);
       }
     },
-    [hideActions],
+    [],
   );
+
+  const closeActions = useCallback(() => {
+    setIsActionsOpen(false);
+  }, []);
 
   const hasChildren = Boolean(props.data.hasChildren);
   const isCollapsed = Boolean(props.data.isCollapsed);
@@ -179,35 +201,30 @@ export const NodeGroup = (props: NodeGroupProps) => {
       onKeyDown={handleKeyDown}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      onFocus={handleFocus}
       onBlur={handleBlur}
       className={cn(
         'group/node relative block w-fit max-w-37.5 min-w-0 select-none transition-all duration-200 ease-out',
         isActionsVisible && 'z-50',
-        isConnecting && 'cursor-pointer',
+        (isConnecting || isRelating) && 'cursor-pointer',
       )}
     >
       <TooltipProvider>
         <div
           data-node-visual-part
-          onMouseEnter={showActions}
-          onMouseLeave={hideActions}
           className="group/node-icon absolute -top-9 left-1/2 -ml-3.5 size-7"
         >
           <span
-            aria-hidden="true"
-            className="pointer-events-auto absolute top-full -inset-x-10 h-3"
-          />
-          <span
             aria-label="آیکون گروه"
-            className="flex size-7 cursor-default items-center justify-center rounded-md border border-node-border bg-linear-to-br from-node-surface-from to-node-surface-to text-node-icon-foreground shadow-[0_6px_16px_var(--node-shadow)] transition-all duration-200 group-hover/node:border-node-border-hover group-hover/node:from-node-surface-hover-from group-hover/node:to-node-surface-hover-to group-hover/node:text-accent-purple"
+            role="button"
+            tabIndex={0}
+            onClick={handleIconClick}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleIconClick(e as unknown as MouseEvent<HTMLSpanElement>); }}
+            className="flex size-7 cursor-pointer items-center justify-center rounded-md border border-node-border bg-linear-to-br from-node-surface-from to-node-surface-to text-node-icon-foreground shadow-[0_6px_16px_var(--node-shadow)] transition-all duration-200 group-hover/node:border-node-border-hover group-hover/node:from-node-surface-hover-from group-hover/node:to-node-surface-hover-to group-hover/node:text-accent-purple"
           >
             <Layers3 size={14} strokeWidth={1.8} />
           </span>
 
           <div
-            onMouseEnter={showActions}
-            onMouseLeave={hideActions}
             className={cn(
               'absolute bottom-[calc(100%+4px)] left-1/2 z-100001 flex -translate-x-1/2 items-center gap-0.5 rounded-md border border-node-border bg-linear-to-br from-node-surface-from/95 to-node-surface-to/95 p-0.5 shadow-[0_8px_20px_var(--node-shadow)] backdrop-blur-sm transition-[opacity,transform] duration-200 ease-out',
               isActionsVisible
@@ -215,26 +232,28 @@ export const NodeGroup = (props: NodeGroupProps) => {
                 : 'pointer-events-none translate-y-1 scale-95 opacity-0',
             )}
           >
-            <span
-              aria-hidden="true"
-              className="pointer-events-auto absolute -bottom-5 -inset-x-6 h-5"
-            />
             <NodeActionButton
               label="ویرایش"
-              onClick={() => props.data.onEdit?.(props.id)}
+              onClick={() => { props.data.onEdit?.(props.id); closeActions(); }}
             >
               <Pencil className="size-2.5" strokeWidth={1.8} />
             </NodeActionButton>
             <NodeActionButton
               label="اتصال"
-              onClick={() => props.data.onConnectStart?.(props.id)}
+              onClick={() => { props.data.onConnectStart?.(props.id); closeActions(); }}
             >
               <Link className="size-2.5" strokeWidth={1.8} />
+            </NodeActionButton>
+            <NodeActionButton
+              label="ارتباط"
+              onClick={() => { props.data.onRelationStart?.(props.id); closeActions(); }}
+            >
+              <GitMerge className="size-2.5" strokeWidth={1.8} />
             </NodeActionButton>
             {hasChildren && !isCollapsed && (
               <NodeActionButton
                 label="جمع‌کردن فرزندان"
-                onClick={() => props.data.onCollapse?.(props.id)}
+                onClick={() => { props.data.onCollapse?.(props.id); closeActions(); }}
               >
                 <ChevronsDown className="size-2.5" strokeWidth={1.8} />
               </NodeActionButton>
@@ -242,22 +261,26 @@ export const NodeGroup = (props: NodeGroupProps) => {
             {hasChildren && isCollapsed && (
               <NodeActionButton
                 label="نمایش فرزندان"
-                onClick={() =>
-                  (props.data.onExpand ?? props.data.onCollapse)?.(props.id)
-                }
+                onClick={() => { (props.data.onExpand ?? props.data.onCollapse)?.(props.id); closeActions(); }}
               >
                 <ChevronsDown className="size-2.5 rotate-180" strokeWidth={1.8} />
               </NodeActionButton>
             )}
             <NodeActionButton
               label="تکثیر"
-              onClick={() => props.data.onClone?.(props.id)}
+              onClick={() => { props.data.onClone?.(props.id); closeActions(); }}
             >
               <Copy className="size-2.5" strokeWidth={1.8} />
             </NodeActionButton>
             <NodeActionButton
+              label="جابه‌جایی"
+              onClick={() => { props.data.onMove?.(props.id); closeActions(); }}
+            >
+              <CornerDownRight className="size-2.5" strokeWidth={1.8} />
+            </NodeActionButton>
+            <NodeActionButton
               label="حذف"
-              onClick={() => props.data.onDelete?.(props.id)}
+              onClick={() => { props.data.onDelete?.(props.id); closeActions(); }}
             >
               <Trash2 className="size-2.5" strokeWidth={1.8} />
             </NodeActionButton>

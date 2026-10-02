@@ -26,6 +26,7 @@ import {
 import { MindMapEdge } from '@/features/main/_components/mind-map-edge';
 import { NodeGroup } from '@/features/main/_components/node-group';
 import { ParentSectionNode } from '@/features/main/_components/parent-section-node';
+import { RelationEdge } from '@/features/main/_components/relation-edge';
 import { type NodeVisualBounds } from '@/features/main/_types/flow';
 import {
   getCollapsedNodeIds,
@@ -45,12 +46,17 @@ export interface MindMapCanvasProps {
   onStartConnect?: (nodeId: string) => void;
   onSelectConnectTarget?: (nodeId: string) => void;
   onCancelConnect?: () => void;
+  onStartRelation?: (nodeId: string) => void;
+  onSelectRelationTarget?: (nodeId: string) => void;
+  onCancelRelation?: () => void;
+  relationSourceId?: string | null;
   onEditNode?: (nodeId: string) => void;
   onDeleteNode?: (nodeId: string) => void;
   onCloneNode?: (nodeId: string) => void;
   onFocusNode?: (nodeId: string) => void;
   onAiNode?: (nodeId: string) => void;
   onNoteNode?: (nodeId: string) => void;
+  onMoveNode?: (nodeId: string) => void;
   onCollapseNode?: (nodeId: string) => void;
   onExpandNode?: (nodeId: string) => void;
   onDeleteEdge?: (edgeId: string) => void;
@@ -66,6 +72,7 @@ const NODE_TYPES: NodeTypes = {
 const EDGE_TYPES: EdgeTypes = {
   smoothstep: MindMapEdge,
   default: MindMapEdge,
+  relation: RelationEdge,
 };
 
 export interface InitialViewportProps {
@@ -179,6 +186,7 @@ export const Canvas = (props: MindMapCanvasProps) => {
 
   const nodesWithHandlers = useMemo(() => {
     const isConnecting = Boolean(props.connectingSourceId);
+    const isRelating = Boolean(props.relationSourceId);
     return props.nodes.map((node) => {
       const isHidden = collapsedNodeIds.has(node.id);
       if (node.type === 'group') {
@@ -201,14 +209,18 @@ export const Canvas = (props: MindMapCanvasProps) => {
             hasChildren,
             isCollapsed,
             isConnecting,
+            isRelating,
             onConnectStart: props.onStartConnect,
+            onRelationStart: props.onStartRelation,
             onSelectAsConnectTarget: props.onSelectConnectTarget,
+            onSelectAsRelationTarget: props.onSelectRelationTarget,
             onEdit: props.onEditNode,
             onDelete: props.onDeleteNode,
             onClone: props.onCloneNode,
             onFocus: props.onFocusNode,
             onAi: props.onAiNode,
             onNote: props.onNoteNode,
+            onMove: props.onMoveNode,
             onCollapse: props.onCollapseNode,
             onExpand: props.onExpandNode ?? props.onCollapseNode,
             onHover: handleNodeHover,
@@ -231,14 +243,18 @@ export const Canvas = (props: MindMapCanvasProps) => {
     props.edges,
     collapsedNodeIds,
     props.connectingSourceId,
+    props.relationSourceId,
     props.onStartConnect,
+    props.onStartRelation,
     props.onSelectConnectTarget,
+    props.onSelectRelationTarget,
     props.onEditNode,
     props.onDeleteNode,
     props.onCloneNode,
     props.onFocusNode,
     props.onAiNode,
     props.onNoteNode,
+    props.onMoveNode,
     props.onCollapseNode,
     props.onExpandNode,
     handleNodeHover,
@@ -271,34 +287,53 @@ export const Canvas = (props: MindMapCanvasProps) => {
   }, [nodesWithHandlers, edgesWithHandlers, hoveredNodeId, nodeVisualBounds]);
 
   const edgesToRender = useMemo(() => {
+    let edges: Edge[] = edgesWithHandlers as Edge[];
+
+    // Preview edge for connect action
     if (
-      !props.connectingSourceId ||
-      !hoveredNodeId ||
-      hoveredNodeId === props.connectingSourceId
+      props.connectingSourceId &&
+      hoveredNodeId &&
+      hoveredNodeId !== props.connectingSourceId
     ) {
-      return edgesWithHandlers;
+      const previewEdge: Edge = {
+        id: '__preview_connecting_edge__',
+        source: hoveredNodeId,
+        target: props.connectingSourceId,
+        sourceHandle: 'parent-source',
+        targetHandle: 'parent-target',
+        type: 'smoothstep',
+        hidden: false,
+        style: {
+          stroke: 'var(--accent-purple)',
+          strokeWidth: 1.5,
+        },
+      };
+      edges = [...edges, previewEdge];
     }
 
-    const parentId = hoveredNodeId;
-    const childId = props.connectingSourceId;
+    // Preview edge for relation action (dashed)
+    if (
+      props.relationSourceId &&
+      hoveredNodeId &&
+      hoveredNodeId !== props.relationSourceId
+    ) {
+      const previewRelationEdge: Edge = {
+        id: '__preview_relation_edge__',
+        source: props.relationSourceId,
+        target: hoveredNodeId,
+        type: 'relation',
+        hidden: false,
+        style: {
+          stroke: 'var(--accent-purple)',
+          strokeWidth: 1.5,
+          opacity: 0.7,
+        },
+      };
+      edges = [...edges, previewRelationEdge];
+    }
 
-    const previewEdge: Edge = {
-      id: '__preview_connecting_edge__',
-      source: parentId,
-      target: childId,
-      sourceHandle: 'parent-source',
-      targetHandle: 'parent-target',
-      type: 'smoothstep',
-      animated: true,
-      style: {
-        stroke: 'var(--accent-purple)',
-        strokeWidth: 2,
-        strokeDasharray: '6 4',
-      },
-    };
-
-    return [...edgesWithHandlers, previewEdge];
-  }, [edgesWithHandlers, props.connectingSourceId, hoveredNodeId]);
+    return edges;
+  }, [edgesWithHandlers, props.connectingSourceId, props.relationSourceId, hoveredNodeId]);
 
   const flowNodes = useMemo(() => {
     return [...parentSectionNodes, ...nodesWithHandlers];
@@ -316,7 +351,7 @@ export const Canvas = (props: MindMapCanvasProps) => {
         connectionLineType={ConnectionLineType.SmoothStep}
         connectionLineStyle={{
           stroke: 'var(--accent-purple)',
-          strokeWidth: 2,
+          strokeWidth: 1.5,
         }}
         onNodeMouseEnter={(_event, node) => {
           if (node.type !== 'parent-section') {
@@ -331,12 +366,17 @@ export const Canvas = (props: MindMapCanvasProps) => {
         onNodeClick={(_event, node) => {
           if (props.connectingSourceId && node.type === 'group') {
             props.onSelectConnectTarget?.(node.id);
+          } else if (props.relationSourceId && node.type === 'group') {
+            props.onSelectRelationTarget?.(node.id);
           }
         }}
         onPaneClick={() => {
           handleNodeHover(null);
           if (props.connectingSourceId) {
             props.onCancelConnect?.();
+          }
+          if (props.relationSourceId) {
+            props.onCancelRelation?.();
           }
         }}
         nodesDraggable={false}

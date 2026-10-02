@@ -8,7 +8,7 @@ import {
   ReactFlowProvider,
   useReactFlow,
 } from '@xyflow/react';
-import { StrictMode, useEffect, useState } from 'react';
+import { StrictMode, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { CompactControls } from '@/features/layout/_components/compact-controls';
@@ -48,6 +48,8 @@ export const MindMapApp = () => {
   const [connectingSourceId, setConnectingSourceId] = useState<string | null>(
     null,
   );
+  const [movingNodeId, setMovingNodeId] = useState<string | null>(null);
+  const [relationSourceId, setRelationSourceId] = useState<string | null>(null);
 
   const selectedNode = editingNodeId
     ? graph.getNodeById(editingNodeId)
@@ -61,6 +63,12 @@ export const MindMapApp = () => {
         if (connectingSourceId) {
           setConnectingSourceId(null);
         }
+        if (movingNodeId) {
+          setMovingNodeId(null);
+        }
+        if (relationSourceId) {
+          setRelationSourceId(null);
+        }
         if (isSelectingZoomArea) {
           setIsSelectingZoomArea(false);
         }
@@ -69,14 +77,20 @@ export const MindMapApp = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [connectingSourceId, isSelectingZoomArea]);
+  }, [connectingSourceId, movingNodeId, isSelectingZoomArea, relationSourceId]);
 
+  const parentChildEdges = useMemo(
+    () => graph.edges.filter(isParentChildEdge),
+    [graph.edges],
+  );
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!graph.isDatabaseReady || graph.nodes.length === 0) {
       return;
     }
 
-    const nextNodes = calculateStandardLayout(graph.nodes, graph.edges);
+    const nextNodes = calculateStandardLayout(graph.nodes, parentChildEdges);
     const hasDifference = nextNodes.some((node, index) => {
       const original = graph.nodes[index];
       return (
@@ -90,7 +104,10 @@ export const MindMapApp = () => {
       graph.setNodes(nextNodes);
       void graph.saveDocument(nextNodes, graph.edges);
     }
-  }, [graph]);
+    // Only re-layout when nodes or parent-child edges change — NOT when
+    // relation edges change, as those must not affect node positions.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graph.isDatabaseReady, graph.nodes, parentChildEdges]);
 
   const handleNodeGroupSubmit = async (
     values: NodeGroupFormValues,
@@ -222,6 +239,54 @@ export const MindMapApp = () => {
     void fitView({ padding: 0.25, duration: 400 });
   };
 
+  const handleStartRelation = (nodeId: string) => {
+    setConnectingSourceId(null);
+    setMovingNodeId(null);
+    setIsSelectingZoomArea(false);
+    setRelationSourceId(nodeId);
+  };
+
+  const handleSelectRelationTarget = async (targetId: string): Promise<void> => {
+    if (!relationSourceId) return;
+    const sourceId = relationSourceId;
+
+    if (sourceId === targetId) {
+      showToast('نمی‌توانید نود را با خودش مرتبط کنید', 'error');
+      setRelationSourceId(null);
+      return;
+    }
+
+    const isAlreadyRelated = graph.edges.some(
+      (edge) =>
+        edge.type === 'relation' &&
+        ((edge.source === sourceId && edge.target === targetId) ||
+          (edge.source === targetId && edge.target === sourceId)),
+    );
+
+    if (isAlreadyRelated) {
+      showToast('این ارتباط از قبل وجود دارد', 'error');
+      setRelationSourceId(null);
+      return;
+    }
+
+    const newEdge: Edge = {
+      id: `relation-${sourceId}-${targetId}`,
+      source: sourceId,
+      target: targetId,
+      type: 'relation',
+    };
+
+    const nextEdges = [...graph.edges, newEdge];
+    graph.setEdges(nextEdges);
+    await graph.saveDocument(graph.nodes, nextEdges);
+    showToast('ارتباط بین نودها با موفقیت برقرار شد', 'success');
+    setRelationSourceId(null);
+  };
+
+  const handleCancelRelation = () => {
+    setRelationSourceId(null);
+  };
+
   const handleStartConnect = (nodeId: string) => {
     setIsSelectingZoomArea(false);
     setConnectingSourceId(nodeId);
@@ -283,6 +348,67 @@ export const MindMapApp = () => {
     setConnectingSourceId(null);
   };
 
+  const handleStartMove = (nodeId: string) => {
+    setConnectingSourceId(null);
+    setIsSelectingZoomArea(false);
+    setMovingNodeId(nodeId);
+  };
+
+  const handleSelectMoveTarget = async (targetId: string): Promise<void> => {
+    if (!movingNodeId) return;
+    const nodeId = movingNodeId;
+
+    if (nodeId === targetId) {
+      showToast('نمی‌توانید نود را به خودش جابه‌جا کنید', 'error');
+      setMovingNodeId(null);
+      return;
+    }
+
+    const parentChildEdges = graph.edges.filter(isParentChildEdge);
+
+    if (wouldCreateCycle(targetId, nodeId, parentChildEdges)) {
+      showToast('جابه‌جایی باعث ایجاد چرخه می‌شود', 'error');
+      setMovingNodeId(null);
+      return;
+    }
+
+    // Remove existing parent edge for this node, add new one
+    const edgesWithoutOldParent = graph.edges.filter(
+      (edge) => !(isParentChildEdge(edge) && edge.target === nodeId),
+    );
+
+    const isAlreadyChild = edgesWithoutOldParent.some(
+      (edge) =>
+        isParentChildEdge(edge) &&
+        edge.source === targetId &&
+        edge.target === nodeId,
+    );
+
+    const newEdge: Edge = {
+      id: `edge-${targetId}-${nodeId}`,
+      source: targetId,
+      target: nodeId,
+      sourceHandle: 'parent-source',
+      targetHandle: 'parent-target',
+      type: 'smoothstep',
+    };
+
+    const nextEdges = isAlreadyChild
+      ? edgesWithoutOldParent
+      : [...edgesWithoutOldParent, newEdge];
+    const nextNodes = calculateStandardLayout(graph.nodes, nextEdges);
+    graph.setNodes(nextNodes);
+    graph.setEdges(nextEdges);
+    await graph.saveDocument(nextNodes, nextEdges);
+    showToast('نود با موفقیت جابه‌جا شد', 'success');
+    void fitView({ padding: 0.25, duration: 400 });
+    setMovingNodeId(null);
+  };
+
+  const handleCancelMove = () => {
+    setMovingNodeId(null);
+  };
+
   const handleConnect = async (connection: Connection) => {
     if (!connection.source || !connection.target) return;
     await handleSelectConnectTarget(connection.target);
@@ -339,12 +465,25 @@ export const MindMapApp = () => {
         }}
         isSelectingZoomArea={isSelectingZoomArea}
         onSelectZoomAreaChange={setIsSelectingZoomArea}
-        connectingSourceId={connectingSourceId}
+        connectingSourceId={connectingSourceId ?? movingNodeId}
         onStartConnect={handleStartConnect}
         onSelectConnectTarget={(targetId) => {
-          void handleSelectConnectTarget(targetId);
+          if (connectingSourceId) {
+            void handleSelectConnectTarget(targetId);
+          } else if (movingNodeId) {
+            void handleSelectMoveTarget(targetId);
+          }
         }}
-        onCancelConnect={handleCancelConnect}
+        onCancelConnect={() => {
+          handleCancelConnect();
+          handleCancelMove();
+        }}
+        relationSourceId={relationSourceId}
+        onStartRelation={handleStartRelation}
+        onSelectRelationTarget={(targetId) => {
+          void handleSelectRelationTarget(targetId);
+        }}
+        onCancelRelation={handleCancelRelation}
         onEditNode={handleOpenEditModal}
         onDeleteNode={(nodeId) => {
           void handleDeleteNode(nodeId);
@@ -353,6 +492,7 @@ export const MindMapApp = () => {
           void handleCloneNode(nodeId);
         }}
         onFocusNode={handleFocusNode}
+        onMoveNode={handleStartMove}
         onCollapseNode={(nodeId) => {
           void handleCollapseNode(nodeId);
         }}
@@ -365,6 +505,18 @@ export const MindMapApp = () => {
         onCancel={handleCancelConnect}
       >
         <span>اون نودی که میخوای بهش متصل بشه رو انتخاب کن</span>
+      </OperationToast>
+      <OperationToast
+        isVisible={Boolean(movingNodeId)}
+        onCancel={handleCancelMove}
+      >
+        <span>نودی که میخوای این نود رو زیرش ببری رو انتخاب کن</span>
+      </OperationToast>
+      <OperationToast
+        isVisible={Boolean(relationSourceId)}
+        onCancel={handleCancelRelation}
+      >
+        <span>نودی که میخوای باهاش ارتباط برقرار بشه رو انتخاب کن</span>
       </OperationToast>
       <OperationToast
         isVisible={isSelectingZoomArea}

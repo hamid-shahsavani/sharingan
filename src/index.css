@@ -263,18 +263,13 @@
   pointer-events: none !important;
 }
 
-.react-flow__connection-path {
-  stroke: var(--accent-purple);
-  stroke-width: 2px;
-  stroke-dasharray: 6 4;
-  animation: connection-line-flow 0.8s linear infinite;
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge.selectable.selected .react-flow__edge-path {
+  stroke-dasharray: none !important;
+  animation: none !important;
 }
 
-@keyframes connection-line-flow {
-  from {
-    stroke-dashoffset: 10;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
+.react-flow__connection-path {
+  stroke: var(--accent-purple);
+  stroke-width: 1.5px;
 }
