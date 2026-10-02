@@ -23,6 +23,7 @@ import {
 
 import { MindMapEdge } from '@/features/main/_components/mind-map-edge';
 import { NodeGroup } from '@/features/main/_components/node-group';
+import { NodeMarkdown } from '@/features/main/_components/node-markdown';
 import { ParentSectionNode } from '@/features/main/_components/parent-section-node';
 import { RelationEdge } from '@/features/main/_components/relation-edge';
 import { type NodeVisualBounds } from '@/features/main/_types/flow';
@@ -64,6 +65,7 @@ export interface MindMapCanvasProps {
 
 const NODE_TYPES: NodeTypes = {
   group: NodeGroup,
+  markdown: NodeMarkdown,
   'parent-section': ParentSectionNode,
 };
 
@@ -156,7 +158,7 @@ export const Canvas = (props: MindMapCanvasProps) => {
     const isRelating = Boolean(props.relationSourceId);
     return props.nodes.map((node) => {
       const isHidden = collapsedNodeIds.has(node.id);
-      if (node.type === 'group') {
+      if (node.type === 'group' || node.type === 'markdown') {
         const hasChildren =
           props.edges.some(
             (edge) => isParentChildEdge(edge) && edge.source === node.id,
@@ -254,7 +256,7 @@ export const Canvas = (props: MindMapCanvasProps) => {
   }, [nodesWithHandlers, edgesWithHandlers, hoveredNodeId, nodeVisualBounds]);
 
   const edgesToRender = useMemo(() => {
-    let edges: Edge[] = edgesWithHandlers as Edge[];
+    let edges: Edge[] = edgesWithHandlers;
 
     // Preview edge for connect action
     if (

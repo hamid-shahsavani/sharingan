@@ -10,7 +10,8 @@ import { TooltipProvider } from '@/features/shared/_uis/tooltip';
 const BOTTOM_MENU_POSITION_CLASS = 'bottom-5!';
 
 export interface CompactControlsProps {
-  onOpenCreateGroupModal: () => void;
+  onOpenCreateModal?: () => void;
+  onOpenCreateGroupModal?: () => void;
   onSelectZoomArea: () => void;
 }
 
@@ -67,7 +68,10 @@ export const CompactControls = (props: CompactControlsProps) => {
         >
           <ZoomAreaControl onSelectZoomArea={props.onSelectZoomArea} />
           <FitViewControl />
-          <CreateControl onOpenCreateGroupModal={props.onOpenCreateGroupModal} />
+          <CreateControl
+            onOpenCreateModal={props.onOpenCreateModal}
+            onOpenCreateGroupModal={props.onOpenCreateGroupModal}
+          />
           <ZoomControl />
         </div>
       </div>

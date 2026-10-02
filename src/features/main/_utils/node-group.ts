@@ -24,6 +24,57 @@ export function createGroupNode(
   };
 }
 
+export function createMarkdownNode(
+  values: { header?: string; body?: string; footer?: string },
+  position: PositionCoordinates,
+  id: string = generateNumericId(),
+): Node {
+  const header = values.header?.trim() ?? '';
+  const body = values.body?.trim() ?? '';
+  const footer = values.footer?.trim() ?? '';
+  const title = header || body.split('\n')[0]?.slice(0, 30) || 'مارک‌داون';
+
+  return {
+    id,
+    type: 'markdown',
+    position,
+    draggable: false,
+    data: {
+      title,
+      header,
+      body,
+      footer,
+    },
+  };
+}
+
+export function updateMarkdownNodeData(
+  nodes: Node[],
+  nodeId: string,
+  values: { header?: string; body?: string; footer?: string },
+): Node[] {
+  const header = values.header?.trim() ?? '';
+  const body = values.body?.trim() ?? '';
+  const footer = values.footer?.trim() ?? '';
+  const title = header || body.split('\n')[0]?.slice(0, 30) || 'مارک‌داون';
+
+  return nodes.map((node) => {
+    if (node.id === nodeId) {
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          title,
+          header,
+          body,
+          footer,
+        },
+      };
+    }
+    return node;
+  });
+}
+
 export function updateNodeTitle(
   nodes: Node[],
   nodeId: string,
@@ -82,11 +133,35 @@ export function cloneSubtree(
     const newId = generateUniqueId();
     idMapping.set(oldId, newId);
 
-    const title =
-      typeof origNode.data?.title === 'string'
-        ? origNode.data.title
-        : 'گروه جدید';
-    const clonedNode = createGroupNode(title, { x: 0, y: 0 }, newId);
+    const isMarkdown = origNode.type === 'markdown';
+    const clonedNode: Node = isMarkdown
+      ? createMarkdownNode(
+          {
+            header:
+              typeof origNode.data?.header === 'string'
+                ? origNode.data.header
+                : typeof origNode.data?.title === 'string'
+                  ? origNode.data.title
+                  : '',
+            body:
+              typeof origNode.data?.body === 'string'
+                ? origNode.data.body
+                : '',
+            footer:
+              typeof origNode.data?.footer === 'string'
+                ? origNode.data.footer
+                : undefined,
+          },
+          { x: 0, y: 0 },
+          newId,
+        )
+      : createGroupNode(
+          typeof origNode.data?.title === 'string'
+            ? origNode.data.title
+            : 'گروه جدید',
+          { x: 0, y: 0 },
+          newId,
+        );
 
     if (origNode.parentId) {
       const mappedParentId = idMapping.get(origNode.parentId);

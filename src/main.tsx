@@ -18,8 +18,18 @@ import {
   NodeGroupModal,
 } from '@/features/main/_components/node-group-modal';
 import {
+  type NodeMarkdownFormValues,
+  NodeMarkdownModal,
+} from '@/features/main/_components/node-markdown-modal';
+import {
+  type CreatableNodeType,
+  NodeTypeSelectModal,
+} from '@/features/main/_components/node-type-select-modal';
+import {
   cloneSubtree,
   createGroupNode,
+  createMarkdownNode,
+  updateMarkdownNodeData,
   updateNodeTitle,
 } from '@/features/main/_utils/node-group';
 import {
@@ -33,15 +43,22 @@ import { OperationToast } from '@/features/shared/_components/operation-toast';
 import { useGraph } from '@/features/shared/_hooks/graph';
 import { showToast } from '@/features/shared/_utils/toast';
 
-interface NodeGroupCustomData {
+interface NodeCustomData {
   title?: string;
+  header?: string;
+  body?: string;
+  footer?: string;
 }
 
 export const MindMapApp = () => {
   const graph = useGraph();
   const { fitView, setCenter } = useReactFlow();
 
+  const [isTypeSelectModalOpen, setIsTypeSelectModalOpen] =
+    useState<boolean>(false);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState<boolean>(false);
+  const [isMarkdownModalOpen, setIsMarkdownModalOpen] =
+    useState<boolean>(false);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [isSelectingZoomArea, setIsSelectingZoomArea] =
     useState<boolean>(false);
@@ -54,8 +71,7 @@ export const MindMapApp = () => {
   const selectedNode = editingNodeId
     ? graph.getNodeById(editingNodeId)
     : undefined;
-  const selectedNodeData = selectedNode?.data as
-    NodeGroupCustomData | undefined;
+  const selectedNodeData = selectedNode?.data as NodeCustomData | undefined;
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -145,16 +161,55 @@ export const MindMapApp = () => {
     setEditingNodeId(null);
   };
 
+  const handleNodeMarkdownSubmit = async (
+    values: NodeMarkdownFormValues,
+    nodeId: string | null,
+  ): Promise<void> => {
+    if (nodeId) {
+      const updatedNodes = updateMarkdownNodeData(graph.nodes, nodeId, values);
+      const nextNodes = calculateStandardLayout(updatedNodes, graph.edges);
+      graph.setNodes(nextNodes);
+      await graph.saveDocument(nextNodes, graph.edges);
+      showToast('نود با موفقیت ویرایش شد', 'success');
+    } else {
+      const rawNode = createMarkdownNode(values, { x: 0, y: 0 });
+      const rawNodes = [...graph.nodes, rawNode];
+      const nextNodes = calculateStandardLayout(rawNodes, graph.edges);
+      graph.setNodes(nextNodes);
+      await graph.saveDocument(nextNodes, graph.edges);
+      showToast('نود مارک‌داون جدید با موفقیت افزوده شد', 'success');
+      void fitView({ padding: 0.25, duration: 400 });
+    }
+    setIsMarkdownModalOpen(false);
+    setEditingNodeId(null);
+  };
+
   const handleOpenCreateModal = () => {
     setConnectingSourceId(null);
     setEditingNodeId(null);
-    setIsGroupModalOpen(true);
+    setIsTypeSelectModalOpen(true);
+  };
+
+  const handleSelectNodeType = (type: CreatableNodeType) => {
+    setIsTypeSelectModalOpen(false);
+    setEditingNodeId(null);
+    if (type === 'group') {
+      setIsGroupModalOpen(true);
+    } else if (type === 'markdown') {
+      setIsMarkdownModalOpen(true);
+    }
   };
 
   const handleOpenEditModal = (nodeId: string) => {
     setConnectingSourceId(null);
+    const targetNode = graph.getNodeById(nodeId);
+    if (!targetNode) return;
     setEditingNodeId(nodeId);
-    setIsGroupModalOpen(true);
+    if (targetNode.type === 'markdown') {
+      setIsMarkdownModalOpen(true);
+    } else {
+      setIsGroupModalOpen(true);
+    }
   };
 
   const handleDeleteNodes = async (
@@ -178,6 +233,7 @@ export const MindMapApp = () => {
     if (editingNodeId && toDeleteIds.has(editingNodeId)) {
       setEditingNodeId(null);
       setIsGroupModalOpen(false);
+      setIsMarkdownModalOpen(false);
     }
 
     if (connectingSourceId && toDeleteIds.has(connectingSourceId)) {
@@ -541,11 +597,17 @@ export const MindMapApp = () => {
       </OperationToast>
       <AppToast />
       <CompactControls
+        onOpenCreateModal={handleOpenCreateModal}
         onOpenCreateGroupModal={handleOpenCreateModal}
         onSelectZoomArea={() => {
           setConnectingSourceId(null);
           setIsSelectingZoomArea(true);
         }}
+      />
+      <NodeTypeSelectModal
+        isOpen={isTypeSelectModalOpen}
+        onClose={() => setIsTypeSelectModalOpen(false)}
+        onSelectType={handleSelectNodeType}
       />
       <NodeGroupModal
         isOpen={isGroupModalOpen}
@@ -553,6 +615,18 @@ export const MindMapApp = () => {
         initialTitle={selectedNodeData?.title}
         onClose={handleCloseModal}
         onSubmit={handleNodeGroupSubmit}
+      />
+      <NodeMarkdownModal
+        isOpen={isMarkdownModalOpen}
+        nodeId={editingNodeId}
+        initialHeader={selectedNodeData?.header ?? selectedNodeData?.title}
+        initialBody={selectedNodeData?.body}
+        initialFooter={selectedNodeData?.footer}
+        onClose={() => {
+          setIsMarkdownModalOpen(false);
+          setEditingNodeId(null);
+        }}
+        onSubmit={handleNodeMarkdownSubmit}
       />
     </main>
   );

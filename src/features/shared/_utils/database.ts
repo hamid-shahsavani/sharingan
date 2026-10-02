@@ -8,7 +8,11 @@ export interface MindMapNodePosition {
 
 export interface MindMapNode {
   id: string;
+  type?: string;
   title: string;
+  header?: string;
+  body?: string;
+  footer?: string;
   position: MindMapNodePosition;
   isCollapsed?: boolean;
   data?: MindMapNode[];
@@ -49,10 +53,13 @@ export const treeToFlow = (
     for (const item of items) {
       nodes.push({
         id: item.id,
-        type: 'group',
+        type: item.type ?? 'group',
         position: item.position,
         data: {
           title: item.title,
+          header: item.header ?? item.title,
+          body: item.body ?? '',
+          footer: item.footer ?? '',
           isCollapsed: item.isCollapsed,
         },
       });
@@ -81,10 +88,19 @@ export const flowToTree = (
 ): MindMapNode[] => {
   const itemMap = new Map<string, MindMapNode>();
   for (const node of nodes) {
-    const title = typeof node.data?.title === 'string' ? node.data.title : '';
+    const title =
+      typeof node.data?.title === 'string'
+        ? node.data.title
+        : typeof node.data?.header === 'string'
+          ? node.data.header
+          : '';
     itemMap.set(node.id, {
       id: node.id,
+      type: node.type ?? 'group',
       title,
+      header: typeof node.data?.header === 'string' ? node.data.header : undefined,
+      body: typeof node.data?.body === 'string' ? node.data.body : undefined,
+      footer: typeof node.data?.footer === 'string' ? node.data.footer : undefined,
       position: { x: node.position.x, y: node.position.y },
       isCollapsed: Boolean(node.data?.isCollapsed),
     });

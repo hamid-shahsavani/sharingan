@@ -20,6 +20,7 @@ export const Input = (props: InputProps) => {
   delete inputProps.label;
   delete inputProps.isRequired;
   delete inputProps.error;
+  delete inputProps.isInvalid;
   delete inputProps.containerClassName;
 
   const inputElement = (

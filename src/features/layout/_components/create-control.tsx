@@ -8,10 +8,13 @@ import {
 } from '@/features/shared/_uis/tooltip';
 
 export interface CreateControlProps {
-  onOpenCreateGroupModal: () => void;
+  onOpenCreateModal?: () => void;
+  onOpenCreateGroupModal?: () => void;
 }
 
 export const CreateControl = (props: CreateControlProps) => {
+  const handleOpen = props.onOpenCreateModal ?? props.onOpenCreateGroupModal;
+
   return (
     <Tooltip>
       <TooltipTrigger
@@ -21,7 +24,7 @@ export const CreateControl = (props: CreateControlProps) => {
             variant="ghost"
             size="icon"
             aria-label="ایجاد نود"
-            onClick={props.onOpenCreateGroupModal}
+            onClick={handleOpen}
             className="size-11! cursor-pointer rounded-xl border border-node-border/60 bg-linear-to-b from-node-surface-from/70 to-node-surface-to/90 text-node-text shadow-sm backdrop-blur-xl transition-all duration-200 hover:from-node-surface-hover-from hover:to-node-surface-hover-to hover:text-accent-purple active:scale-95"
           >
             <FilePlus2 className="size-5" strokeWidth={1.8} />
