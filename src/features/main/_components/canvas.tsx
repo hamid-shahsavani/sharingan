@@ -17,9 +17,7 @@ import { cn } from 'cn';
 import {
   type MouseEvent,
   useCallback,
-  useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 
@@ -75,37 +73,6 @@ const EDGE_TYPES: EdgeTypes = {
   relation: RelationEdge,
 };
 
-export interface InitialViewportProps {
-  nodes: Node[];
-}
-
-const InitialViewport = (props: InitialViewportProps) => {
-  const { fitView } = useReactFlow();
-  const fittedNodeSignatureRef = useRef<string>('');
-
-  useEffect(() => {
-    if (props.nodes.length === 0) {
-      return;
-    }
-
-    const currentSignature = props.nodes.map((node) => node.id).sort().join('|');
-    if (fittedNodeSignatureRef.current === currentSignature) {
-      return;
-    }
-
-    fittedNodeSignatureRef.current = currentSignature;
-
-    const frameId = requestAnimationFrame(() => {
-      void fitView({ padding: 0.25, duration: 0 });
-    });
-
-    return () => {
-      cancelAnimationFrame(frameId);
-    };
-  }, [fitView, props.nodes]);
-
-  return null;
-};
 
 const MAX_CANVAS_ZOOM = 3;
 
@@ -383,8 +350,7 @@ export const Canvas = (props: MindMapCanvasProps) => {
         }}
         nodeTypes={NODE_TYPES}
         edgeTypes={EDGE_TYPES}
-        fitView
-        fitViewOptions={{ padding: 0.25, duration: 0 }}
+
         minZoom={0.2}
         maxZoom={MAX_CANVAS_ZOOM}
         proOptions={{ hideAttribution: true }}
@@ -399,7 +365,6 @@ export const Canvas = (props: MindMapCanvasProps) => {
             className="opacity-50"
           />
         ) : null}
-        <InitialViewport nodes={props.nodes} />
         <ZoomAreaSelector
           isActive={isSelectingZoomArea}
           onActiveChange={(active) => {

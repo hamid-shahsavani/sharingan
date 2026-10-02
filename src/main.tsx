@@ -111,6 +111,14 @@ export const MindMapApp = () => {
       graph.setNodes(nextNodes);
       void graph.saveDocument(nextNodes, graph.edges);
     }
+
+    // Fit all nodes into view after the initial layout is settled.
+    // Two rAF frames ensure React Flow has measured and positioned nodes before we zoom.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        void fitView({ padding: 0.18, duration: 0 });
+      });
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graph.isDatabaseReady]);
 
