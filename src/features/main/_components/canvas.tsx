@@ -363,13 +363,7 @@ export const Canvas = (props: MindMapCanvasProps) => {
             handleNodeHover(null);
           }
         }}
-        onNodeClick={(_event, node) => {
-          if (props.connectingSourceId && node.type === 'group') {
-            props.onSelectConnectTarget?.(node.id);
-          } else if (props.relationSourceId && node.type === 'group') {
-            props.onSelectRelationTarget?.(node.id);
-          }
-        }}
+
         onPaneClick={() => {
           handleNodeHover(null);
           if (props.connectingSourceId) {

@@ -128,30 +128,6 @@ export const NodeGroup = (props: NodeGroupProps) => {
   }, [getViewport, props.id, props.data.onVisualBoundsChange]);
 
 
-  const handleClick = (event: MouseEvent<HTMLDivElement>) => {
-    if (props.data.isConnecting) {
-      event.stopPropagation();
-      props.data.onSelectAsConnectTarget?.(props.id);
-    } else if (props.data.isRelating) {
-      event.stopPropagation();
-      props.data.onSelectAsRelationTarget?.(props.id);
-    }
-  };
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      if (props.data.isConnecting) {
-        event.preventDefault();
-        event.stopPropagation();
-        props.data.onSelectAsConnectTarget?.(props.id);
-      } else if (props.data.isRelating) {
-        event.preventDefault();
-        event.stopPropagation();
-        props.data.onSelectAsRelationTarget?.(props.id);
-      }
-    }
-  };
-
   const handleMouseEnter = useCallback(() => {
     props.data.onHover?.(props.id);
   }, [props.data, props.id]);
@@ -195,17 +171,12 @@ export const NodeGroup = (props: NodeGroupProps) => {
   return (
     <div
       ref={nodeRootRef}
-      role="button"
-      tabIndex={0}
-      onClick={handleClick}
-      onKeyDown={handleKeyDown}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onBlur={handleBlur}
       className={cn(
         'group/node relative block w-fit max-w-37.5 min-w-0 select-none transition-all duration-200 ease-out',
         isActionsVisible && 'z-50',
-        (isConnecting || isRelating) && 'cursor-pointer',
       )}
     >
       <TooltipProvider>

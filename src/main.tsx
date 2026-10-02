@@ -8,7 +8,7 @@ import {
   ReactFlowProvider,
   useReactFlow,
 } from '@xyflow/react';
-import { StrictMode, useEffect, useMemo, useState } from 'react';
+import { StrictMode, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { CompactControls } from '@/features/layout/_components/compact-controls';
@@ -79,18 +79,25 @@ export const MindMapApp = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [connectingSourceId, movingNodeId, isSelectingZoomArea, relationSourceId]);
 
-  const parentChildEdges = useMemo(
-    () => graph.edges.filter(isParentChildEdge),
-    [graph.edges],
-  );
+  const hasAppliedInitialLayout = useRef(false);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Apply standard layout exactly once, right after nodes are first loaded from DB.
+  // Do NOT depend on graph.nodes or parentChildEdges here — that would re-run layout
+  // on every edge change (including relation edges) and move nodes unexpectedly.
   useEffect(() => {
     if (!graph.isDatabaseReady || graph.nodes.length === 0) {
       return;
     }
+    if (hasAppliedInitialLayout.current) {
+      return;
+    }
+    hasAppliedInitialLayout.current = true;
 
-    const nextNodes = calculateStandardLayout(graph.nodes, parentChildEdges);
+    const currentParentChildEdges = graph.nodes.length > 0
+      ? graph.edges.filter(isParentChildEdge)
+      : [];
+
+    const nextNodes = calculateStandardLayout(graph.nodes, currentParentChildEdges);
     const hasDifference = nextNodes.some((node, index) => {
       const original = graph.nodes[index];
       return (
@@ -104,10 +111,8 @@ export const MindMapApp = () => {
       graph.setNodes(nextNodes);
       void graph.saveDocument(nextNodes, graph.edges);
     }
-    // Only re-layout when nodes or parent-child edges change — NOT when
-    // relation edges change, as those must not affect node positions.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [graph.isDatabaseReady, graph.nodes, parentChildEdges]);
+  }, [graph.isDatabaseReady]);
 
   const handleNodeGroupSubmit = async (
     values: NodeGroupFormValues,
