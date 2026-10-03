@@ -230,6 +230,7 @@ function computeTreeLayout(
   visited.add(rootId);
   const node = nodeMap.get(rootId);
   const nodeW = getNodeWidth(node);
+  const nodeH = getNodeHeight(node); // Get the dynamic height of the current node
 
   const children = (childrenMap.get(rootId) || []).filter(
     (id) => !visited.has(id),
@@ -306,13 +307,16 @@ function computeTreeLayout(
   const positions = new Map<string, PositionCoordinates>();
   positions.set(rootId, { x: parentX, y: 0 });
 
+  // Use dynamic vertical gap: parent's height + STANDARD_GAP
+  const verticalStep = nodeH + STANDARD_GAP;
+
   for (let i = 0; i < childSubtrees.length; i++) {
     const child = childSubtrees[i];
     const offX = childX[i];
     for (const [id, pos] of child.positions) {
       positions.set(id, {
         x: pos.x + offX,
-        y: pos.y + LEVEL_Y_STEP,
+        y: pos.y + verticalStep,
       });
     }
   }
@@ -617,7 +621,3 @@ export function calculateStandardLayout(
     };
   });
 }
-
-
-
-
