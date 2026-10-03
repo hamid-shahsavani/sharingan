@@ -193,7 +193,7 @@ export function cloneSubtree(
       target: newRootId,
       sourceHandle: parentEdge.sourceHandle ?? 'parent-source',
       targetHandle: parentEdge.targetHandle ?? 'parent-target',
-      type: parentEdge.type ?? 'smoothstep',
+      type: parentEdge.type ?? 'straight',
     });
   }
 

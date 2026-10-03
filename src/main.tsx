@@ -35,12 +35,12 @@ import {
 import {
   calculateStandardLayout,
   getDescendantNodeIds,
-  isParentChildEdge,
   wouldCreateCycle,
 } from '@/features/main/_utils/node-layout';
 import { AppToast } from '@/features/shared/_components/app-toast';
 import { OperationToast } from '@/features/shared/_components/operation-toast';
 import { useGraph } from '@/features/shared/_hooks/graph';
+import { isParentChildEdge } from '@/features/shared/_utils/edge-validator';
 import { showToast } from '@/features/shared/_utils/toast';
 
 interface NodeCustomData {
@@ -95,48 +95,40 @@ export const MindMapApp = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [connectingSourceId, movingNodeId, isSelectingZoomArea, relationSourceId]);
 
-  const hasAppliedInitialLayout = useRef(false);
+  const hasFittedInitialView = useRef(false);
 
-  // Apply standard layout exactly once, right after nodes are first loaded from DB.
-  // Do NOT depend on graph.nodes or parentChildEdges here — that would re-run layout
-  // on every edge change (including relation edges) and move nodes unexpectedly.
   useEffect(() => {
     if (!graph.isDatabaseReady || graph.nodes.length === 0) {
       return;
     }
-    if (hasAppliedInitialLayout.current) {
+    if (hasFittedInitialView.current) {
       return;
     }
-    hasAppliedInitialLayout.current = true;
+    hasFittedInitialView.current = true;
 
-    const currentParentChildEdges = graph.nodes.length > 0
-      ? graph.edges.filter(isParentChildEdge)
-      : [];
-
-    const nextNodes = calculateStandardLayout(graph.nodes, currentParentChildEdges);
-    const hasDifference = nextNodes.some((node, index) => {
-      const original = graph.nodes[index];
-      return (
-        !original ||
-        original.position.x !== node.position.x ||
-        original.position.y !== node.position.y
+    const isUnplaced =
+      graph.nodes.length > 1 &&
+      graph.nodes.every(
+        (node) => node.position.x === 0 && node.position.y === 0,
       );
-    });
 
-    if (hasDifference) {
+    if (isUnplaced) {
+      const currentParentChildEdges = graph.edges.filter(isParentChildEdge);
+      const nextNodes = calculateStandardLayout(
+        graph.nodes,
+        currentParentChildEdges,
+      );
       graph.setNodes(nextNodes);
       void graph.saveDocument(nextNodes, graph.edges);
     }
 
-    // Fit all nodes into view after the initial layout is settled.
-    // Two rAF frames ensure React Flow has measured and positioned nodes before we zoom.
+    // Fit all nodes into view without altering stored database positions.
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         void fitView({ padding: 0.18, duration: 0 });
       });
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [graph.isDatabaseReady]);
+  }, [fitView, graph]);
 
   const handleNodeGroupSubmit = async (
     values: NodeGroupFormValues,
@@ -212,19 +204,13 @@ export const MindMapApp = () => {
     }
   };
 
-  const handleDeleteNodes = async (
-    targetNodeIds: string[],
-  ): Promise<void> => {
+  const handleDeleteNodes = async (targetNodeIds: string[]): Promise<void> => {
     if (targetNodeIds.length === 0) return;
 
     const toDeleteIds = new Set<string>();
     for (const id of targetNodeIds) {
       toDeleteIds.add(id);
-      const descendantIds = getDescendantNodeIds(
-        id,
-        graph.nodes,
-        graph.edges,
-      );
+      const descendantIds = getDescendantNodeIds(id, graph.nodes, graph.edges);
       for (const descId of descendantIds) {
         toDeleteIds.add(descId);
       }
@@ -315,7 +301,9 @@ export const MindMapApp = () => {
     setRelationSourceId(nodeId);
   };
 
-  const handleSelectRelationTarget = async (targetId: string): Promise<void> => {
+  const handleSelectRelationTarget = async (
+    targetId: string,
+  ): Promise<void> => {
     if (!relationSourceId) return;
     const sourceId = relationSourceId;
 
@@ -400,7 +388,7 @@ export const MindMapApp = () => {
       target: childId,
       sourceHandle: 'parent-source',
       targetHandle: 'parent-target',
-      type: 'smoothstep',
+      type: 'straight',
     };
 
     const nextEdges = addEdge(newEdge, graph.edges);
@@ -459,7 +447,7 @@ export const MindMapApp = () => {
       target: nodeId,
       sourceHandle: 'parent-source',
       targetHandle: 'parent-target',
-      type: 'smoothstep',
+      type: 'straight',
     };
 
     const nextEdges = isAlreadyChild
@@ -493,13 +481,23 @@ export const MindMapApp = () => {
   };
 
   const handleDeleteEdge = async (edgeId: string) => {
+    const deletedEdge = graph.edges.find((edge) => edge.id === edgeId);
     const nextEdges = graph.edges.filter((edge) => edge.id !== edgeId);
-    const nextNodes = calculateStandardLayout(graph.nodes, nextEdges);
-    graph.setNodes(nextNodes);
+    const isParentChild = deletedEdge ? isParentChildEdge(deletedEdge) : false;
+
+    const nextNodes = isParentChild
+      ? calculateStandardLayout(graph.nodes, nextEdges)
+      : graph.nodes;
+
+    if (isParentChild) {
+      graph.setNodes(nextNodes);
+    }
     graph.setEdges(nextEdges);
     await graph.saveDocument(nextNodes, nextEdges);
     showToast('ارتباط با موفقیت حذف شد', 'success');
-    void fitView({ padding: 0.25, duration: 400 });
+    if (isParentChild) {
+      void fitView({ padding: 0.25, duration: 400 });
+    }
   };
 
   const handleCollapseNode = async (nodeId: string): Promise<void> => {

@@ -1,5 +1,7 @@
 import { type Edge, type Node } from '@xyflow/react';
 
+import { isParentChildEdge } from '@/features/shared/_utils/edge-validator';
+
 export interface PositionCoordinates {
   x: number;
   y: number;
@@ -91,33 +93,6 @@ export function wouldCreateCycle(
   }
 
   return false;
-}
-
-export function isParentChildEdge(edge: {
-  type?: string;
-  sourceHandle?: string | null;
-  targetHandle?: string | null;
-}): boolean {
-  if (edge.type === 'relation') {
-    return false;
-  }
-
-  if (
-    edge.sourceHandle?.startsWith('relation-') ||
-    edge.targetHandle?.startsWith('relation-')
-  ) {
-    return false;
-  }
-
-  if (
-    edge.sourceHandle &&
-    edge.sourceHandle !== 'parent-source' &&
-    edge.targetHandle &&
-    edge.targetHandle !== 'parent-target'
-  ) {
-    return false;
-  }
-  return true;
 }
 
 export function getDescendantNodeIds(
@@ -230,7 +205,7 @@ function computeTreeLayout(
   visited.add(rootId);
   const node = nodeMap.get(rootId);
   const nodeW = getNodeWidth(node);
-  const nodeH = getNodeHeight(node); // Get the dynamic height of the current node
+  const nodeH = getNodeHeight(node);
 
   const children = (childrenMap.get(rootId) || []).filter(
     (id) => !visited.has(id),
@@ -307,8 +282,10 @@ function computeTreeLayout(
   const positions = new Map<string, PositionCoordinates>();
   positions.set(rootId, { x: parentX, y: 0 });
 
-  // Use dynamic vertical gap: parent's height + STANDARD_GAP
-  const verticalStep = nodeH + STANDARD_GAP;
+  const verticalStep = Math.max(
+    LEVEL_Y_STEP,
+    nodeH + NODE_ICON_HEIGHT + STANDARD_GAP,
+  );
 
   for (let i = 0; i < childSubtrees.length; i++) {
     const child = childSubtrees[i];
@@ -568,7 +545,10 @@ export function calculateStandardLayout(
 
     const standaloneWidths = standaloneNodes.map((n) => getNodeWidth(n));
     const standaloneHeights = standaloneNodes.map((n) => getNodeHeight(n));
-    const maxStandaloneHeight = Math.max(...standaloneHeights, NODE_CARD_HEIGHT);
+    const maxStandaloneHeight = Math.max(
+      ...standaloneHeights,
+      NODE_CARD_HEIGHT,
+    );
 
     const totalStandaloneWidth =
       standaloneWidths.reduce((sum, w) => sum + w, 0) +

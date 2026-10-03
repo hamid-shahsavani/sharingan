@@ -6,10 +6,10 @@ import {
 } from '@/features/main/_types/flow';
 import {
   getNodeWidth,
-  isParentChildEdge,
   NODE_CARD_HEIGHT,
   NODE_ICON_HEIGHT,
 } from '@/features/main/_utils/node-layout';
+import { isParentChildEdge } from '@/features/shared/_utils/edge-validator';
 
 export const calculateParentSections = (
   nodes: readonly Node[],
@@ -67,8 +67,7 @@ export const calculateParentSections = (
       const fallbackWidth = member.measured?.width ?? getNodeWidth(member);
       const fallbackHeight = member.measured?.height ?? NODE_CARD_HEIGHT;
 
-      const visualLeft =
-        visual?.left ?? Math.min(0, fallbackWidth / 2 - 14);
+      const visualLeft = visual?.left ?? Math.min(0, fallbackWidth / 2 - 14);
       const visualTop = visual?.top ?? -NODE_ICON_HEIGHT;
       const visualRight =
         visual?.right ?? Math.max(fallbackWidth, fallbackWidth / 2 + 14);

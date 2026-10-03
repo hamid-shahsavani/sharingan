@@ -1,6 +1,8 @@
 import { type Edge, type Node } from '@xyflow/react';
 import Dexie, { type EntityTable } from 'dexie';
 
+import { isParentChildEdge } from '@/features/shared/_utils/edge-validator';
+
 export interface MindMapNodePosition {
   x: number;
   y: number;
@@ -40,12 +42,15 @@ export class SharinganDatabase extends Dexie {
 export const db = new SharinganDatabase();
 
 export const generateNumericId = (): string => {
-  return `${Date.now()}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+  return `${Date.now()}${Math.floor(Math.random() * 1000)
+    .toString()
+    .padStart(3, '0')}`;
 };
 
-export const treeToFlow = (
-  tree: MindMapNode[],
-): { nodes: Node[]; edges: Edge[] } => {
+export function treeToFlow(tree: MindMapNode[]): {
+  nodes: Node[];
+  edges: Edge[];
+} {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
 
@@ -69,6 +74,9 @@ export const treeToFlow = (
           id: `edge-${parentId}-${item.id}`,
           source: parentId,
           target: item.id,
+          sourceHandle: 'parent-source',
+          targetHandle: 'parent-target',
+          type: 'straight',
         });
       }
 
@@ -80,12 +88,9 @@ export const treeToFlow = (
 
   traverse(tree);
   return { nodes, edges };
-};
+}
 
-export const flowToTree = (
-  nodes: Node[],
-  edges: Edge[] = [],
-): MindMapNode[] => {
+export function flowToTree(nodes: Node[], edges: Edge[] = []): MindMapNode[] {
   const itemMap = new Map<string, MindMapNode>();
   for (const node of nodes) {
     const title =
@@ -98,9 +103,11 @@ export const flowToTree = (
       id: node.id,
       type: node.type ?? 'group',
       title,
-      header: typeof node.data?.header === 'string' ? node.data.header : undefined,
+      header:
+        typeof node.data?.header === 'string' ? node.data.header : undefined,
       body: typeof node.data?.body === 'string' ? node.data.body : undefined,
-      footer: typeof node.data?.footer === 'string' ? node.data.footer : undefined,
+      footer:
+        typeof node.data?.footer === 'string' ? node.data.footer : undefined,
       position: { x: node.position.x, y: node.position.y },
       isCollapsed: Boolean(node.data?.isCollapsed),
     });
@@ -112,21 +119,37 @@ export const flowToTree = (
       parentMap.set(node.id, node.parentId);
     }
   }
-  for (const edge of edges) {
-    const isRelation =
-      edge.sourceHandle?.startsWith('relation-') ||
-      edge.targetHandle?.startsWith('relation-') ||
-      (edge.sourceHandle &&
-        edge.sourceHandle !== 'parent-source' &&
-        edge.targetHandle &&
-        edge.targetHandle !== 'parent-target');
 
-    if (!isRelation && edge.source && edge.target && !parentMap.has(edge.target)) {
-      parentMap.set(edge.target, edge.source);
+  for (const edge of edges) {
+    if (!isParentChildEdge(edge)) {
+      continue;
+    }
+
+    if (
+      edge.source &&
+      edge.target &&
+      edge.source !== edge.target &&
+      !parentMap.has(edge.target)
+    ) {
+      let ancestor: string | undefined = edge.source;
+      let hasCycle = false;
+      while (ancestor) {
+        if (ancestor === edge.target) {
+          hasCycle = true;
+          break;
+        }
+        ancestor = parentMap.get(ancestor);
+      }
+
+      if (!hasCycle) {
+        parentMap.set(edge.target, edge.source);
+      }
     }
   }
 
   const rootItems: MindMapNode[] = [];
+  const placedNodeIds = new Set<string>();
+
   for (const [nodeId, item] of itemMap) {
     const parentId = parentMap.get(nodeId);
     if (parentId && itemMap.has(parentId)) {
@@ -136,13 +159,22 @@ export const flowToTree = (
         parent.data = [];
       }
       parent.data.push(item);
+      placedNodeIds.add(nodeId);
     } else {
       rootItems.push(item);
+      placedNodeIds.add(nodeId);
+    }
+  }
+
+  for (const [nodeId, item] of itemMap) {
+    if (!placedNodeIds.has(nodeId)) {
+      rootItems.push(item);
+      placedNodeIds.add(nodeId);
     }
   }
 
   return rootItems;
-};
+}
 
 export const documentService = {
   async create(document: DocumentRecord): Promise<DocumentRecord> {

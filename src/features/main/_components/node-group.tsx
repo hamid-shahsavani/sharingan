@@ -69,8 +69,7 @@ export const NodeGroup = (props: NodeGroupProps) => {
 
   useEffect(() => {
     updateNodeInternals(props.id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [props.id, updateNodeInternals]);
 
   useEffect(() => {
     const nodeElement =

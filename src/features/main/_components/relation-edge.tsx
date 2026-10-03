@@ -2,8 +2,8 @@ import {
   type Edge,
   EdgeLabelRenderer,
   type EdgeProps,
-  getSmoothStepPath,
-  Position,
+  getStraightPath,
+  useInternalNode,
 } from '@xyflow/react';
 import { cn } from 'cn';
 import { Trash2 } from 'lucide-react';
@@ -18,6 +18,10 @@ import {
 } from 'react';
 
 import { NodeActionButton } from '@/features/main/_components/node-action-button';
+import {
+  getIconBox,
+  getIntelligentIconConnection,
+} from '@/features/main/_utils/icon-connection';
 import { TooltipProvider } from '@/features/shared/_uis/tooltip';
 
 export interface RelationEdgeData extends Record<string, unknown> {
@@ -30,6 +34,9 @@ export const RelationEdge = (props: RelationEdgeProps) => {
   const [isActionsOpen, setIsActionsOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const labelRef = useRef<HTMLDivElement>(null);
+
+  const sourceNode = useInternalNode(props.source);
+  const targetNode = useInternalNode(props.target);
 
   useEffect(() => {
     if (!isActionsOpen) return;
@@ -45,17 +52,32 @@ export const RelationEdge = (props: RelationEdgeProps) => {
     return () => document.removeEventListener('click', handleOutsideClick);
   }, [isActionsOpen]);
 
-  const sourcePosition = props.sourcePosition ?? Position.Bottom;
-  const targetPosition = props.targetPosition ?? Position.Top;
+  const connectionCoords = useMemo(() => {
+    if (sourceNode && targetNode) {
+      const sourceBox = getIconBox(sourceNode);
+      const targetBox = getIconBox(targetNode);
+      return getIntelligentIconConnection(sourceBox, targetBox);
+    }
+    return {
+      sourceX: props.sourceX,
+      sourceY: props.sourceY,
+      targetX: props.targetX,
+      targetY: props.targetY,
+    };
+  }, [
+    sourceNode,
+    targetNode,
+    props.sourceX,
+    props.sourceY,
+    props.targetX,
+    props.targetY,
+  ]);
 
-  const [edgePath, labelX, labelY] = getSmoothStepPath({
-    sourceX: props.sourceX,
-    sourceY: props.sourceY,
-    sourcePosition,
-    targetX: props.targetX,
-    targetY: props.targetY,
-    targetPosition,
-    borderRadius: 12,
+  const [edgePath, labelX, labelY] = getStraightPath({
+    sourceX: connectionCoords.sourceX,
+    sourceY: connectionCoords.sourceY,
+    targetX: connectionCoords.targetX,
+    targetY: connectionCoords.targetY,
   });
 
   const handleDelete = useCallback(() => {

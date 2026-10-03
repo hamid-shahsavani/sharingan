@@ -14,12 +14,7 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 import { cn } from 'cn';
-import {
-  type MouseEvent,
-  useCallback,
-  useMemo,
-  useState,
-} from 'react';
+import { type MouseEvent, useCallback, useMemo, useState } from 'react';
 
 import { MindMapEdge } from '@/features/main/_components/mind-map-edge';
 import { NodeGroup } from '@/features/main/_components/node-group';
@@ -27,11 +22,9 @@ import { NodeMarkdown } from '@/features/main/_components/node-markdown';
 import { ParentSectionNode } from '@/features/main/_components/parent-section-node';
 import { RelationEdge } from '@/features/main/_components/relation-edge';
 import { type NodeVisualBounds } from '@/features/main/_types/flow';
-import {
-  getCollapsedNodeIds,
-  isParentChildEdge,
-} from '@/features/main/_utils/node-layout';
+import { getCollapsedNodeIds } from '@/features/main/_utils/node-layout';
 import { calculateParentSections } from '@/features/main/_utils/parent-section';
+import { isParentChildEdge } from '@/features/shared/_utils/edge-validator';
 
 export interface MindMapCanvasProps {
   nodes: Node[];
@@ -70,11 +63,11 @@ const NODE_TYPES: NodeTypes = {
 };
 
 const EDGE_TYPES: EdgeTypes = {
+  straight: MindMapEdge,
   smoothstep: MindMapEdge,
   default: MindMapEdge,
   relation: RelationEdge,
 };
-
 
 const MAX_CANVAS_ZOOM = 3;
 
@@ -162,8 +155,7 @@ export const Canvas = (props: MindMapCanvasProps) => {
         const hasChildren =
           props.edges.some(
             (edge) => isParentChildEdge(edge) && edge.source === node.id,
-          ) ||
-          props.nodes.some((other) => other.parentId === node.id);
+          ) || props.nodes.some((other) => other.parentId === node.id);
         const isCollapsed = Boolean(node.data?.isCollapsed);
         return {
           ...node,
@@ -233,8 +225,7 @@ export const Canvas = (props: MindMapCanvasProps) => {
   const edgesWithHandlers = useMemo(() => {
     return props.edges.map((edge) => {
       const isHidden =
-        collapsedNodeIds.has(edge.source) ||
-        collapsedNodeIds.has(edge.target);
+        collapsedNodeIds.has(edge.source) || collapsedNodeIds.has(edge.target);
       return {
         ...edge,
         hidden: isHidden,
@@ -270,7 +261,7 @@ export const Canvas = (props: MindMapCanvasProps) => {
         target: props.connectingSourceId,
         sourceHandle: 'parent-source',
         targetHandle: 'parent-target',
-        type: 'smoothstep',
+        type: 'straight',
         hidden: false,
         style: {
           stroke: 'var(--accent-purple)',
@@ -302,7 +293,12 @@ export const Canvas = (props: MindMapCanvasProps) => {
     }
 
     return edges;
-  }, [edgesWithHandlers, props.connectingSourceId, props.relationSourceId, hoveredNodeId]);
+  }, [
+    edgesWithHandlers,
+    props.connectingSourceId,
+    props.relationSourceId,
+    hoveredNodeId,
+  ]);
 
   const flowNodes = useMemo(() => {
     return [...parentSectionNodes, ...nodesWithHandlers];
@@ -317,7 +313,7 @@ export const Canvas = (props: MindMapCanvasProps) => {
         onEdgesChange={props.onEdgesChange}
         onConnect={props.onConnect}
         connectionMode={ConnectionMode.Loose}
-        connectionLineType={ConnectionLineType.SmoothStep}
+        connectionLineType={ConnectionLineType.Straight}
         connectionLineStyle={{
           stroke: 'var(--accent-purple)',
           strokeWidth: 1.5,
@@ -347,7 +343,7 @@ export const Canvas = (props: MindMapCanvasProps) => {
         elementsSelectable={true}
         zoomOnDoubleClick={false}
         defaultEdgeOptions={{
-          type: 'smoothstep',
+          type: 'straight',
           style: { stroke: 'var(--node-border, #4b5563)', strokeWidth: 1.5 },
         }}
         nodeTypes={NODE_TYPES}
